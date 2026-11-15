@@ -63,7 +63,7 @@ class MainActivity : Activity() {
                 setTextColor(Color.WHITE)
                 textSize = 16f
                 setPadding(18, 12, 18, 12)
-                setBackgroundColor(Color.rgb( thirty(), thirty(), thirty()))
+                setBackgroundColor(Color.rgb(30, 30, 30))
                 if (password) inputType = 129
             }
             val params = LinearLayout.LayoutParams(
@@ -107,6 +107,4 @@ class MainActivity : Activity() {
 
         setContentView(root)
     }
-
-    private fun thirty(): Int = 30
 }
