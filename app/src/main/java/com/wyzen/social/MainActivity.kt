@@ -1,6 +1,7 @@
 package com.wyzen.social
 
 import android.app.Activity
+import android.net.Uri
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -37,6 +38,7 @@ class MainActivity : Activity() {
         token = getPreferences(0).getString("token", null)
         userId = getPreferences(0).getString("user_id", null)
         if (token != null) showFeed() else showAuth()
+        handleAuthIntent(intent)
     }
 
     private fun baseColumn(): LinearLayout = LinearLayout(this).apply {
@@ -130,6 +132,55 @@ class MainActivity : Activity() {
         setContentView(page)
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAuthIntent(intent)
+    }
+
+    private fun handleAuthIntent(intent: android.content.Intent?) {
+        val callback = intent?.data ?: return
+        if (callback.scheme != "wyzensocial" || callback.host != "auth-callback") return
+        val params = mutableMapOf<String, String>()
+        fun readParams(raw: String?) {
+            raw?.split("&")?.forEach { part ->
+                val pair = part.split("=", limit = 2)
+                if (pair.size == 2) {
+                    params[URLDecoder.decode(pair[0], "UTF-8")] =
+                        URLDecoder.decode(pair[1].replace("+", "%2B"), "UTF-8")
+                }
+            }
+        }
+        readParams(callback.fragment)
+        readParams(callback.encodedQuery)
+        val access = params["access_token"]
+        if (access.isNullOrBlank()) {
+            val error = params["error_description"] ?: params["error"] ?: "Não foi possível confirmar o e-mail."
+            runOnUiThread {
+                if (::status.isInitialized) status.text = error
+                else Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        io.execute {
+            try {
+                val user = JSONObject(request("/auth/v1/user", "GET", null, access))
+                val id = user.optString("id")
+                if (id.isBlank()) throw Exception("Não foi possível identificar a conta.")
+                token = access
+                userId = id
+                getPreferences(0).edit().putString("token", access).putString("user_id", id).apply()
+                runOnUiThread { showFeed(); Toast.makeText(this, "E-mail confirmado!", Toast.LENGTH_LONG).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    val message = "E-mail confirmado. Abre a aplicação e inicia sessão."
+                    if (::status.isInitialized) status.text = message
+                    else Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     private fun authenticate(email: String, password: String, signup: Boolean) {
         if (email.isBlank() || password.length < 6) {
             status.text = "Introduz um e-mail e uma palavra-passe com pelo menos 6 caracteres."
@@ -138,7 +189,8 @@ class MainActivity : Activity() {
         status.text = "A ligar ao Supabase..."
         io.execute {
             try {
-                val path = if (signup) "/auth/v1/signup" else "/auth/v1/token?grant_type=password"
+                val redirect = URLEncoder.encode("wyzensocial://auth-callback", "UTF-8")
+                val path = if (signup) "/auth/v1/signup?redirect_to=$redirect" else "/auth/v1/token?grant_type=password"
                 val result = request(path, "POST", JSONObject().put("email", email).put("password", password), null)
                 val json = JSONObject(result)
                 val access = json.optString("access_token")
