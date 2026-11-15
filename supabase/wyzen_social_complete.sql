@@ -52,6 +52,7 @@ create table if not exists public.notifications (
 );
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
+  created_by uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now()
 );
 create table if not exists public.conversation_members (
@@ -191,18 +192,17 @@ create policy follows_self on public.follows for all to authenticated using(foll
 drop policy if exists notifications_own on public.notifications;
 create policy notifications_own on public.notifications for all to authenticated using(recipient_id=auth.uid()) with check(recipient_id=auth.uid());
 
+alter table public.conversations add column if not exists created_by uuid references public.profiles(id) on delete cascade;
 drop policy if exists conversations_member_read on public.conversations;
 create policy conversations_member_read on public.conversations for select to authenticated using(
- exists(select 1 from public.conversation_members m where m.conversation_id=id and m.user_id=auth.uid()));
+ created_by=auth.uid() or id in (select conversation_id from public.conversation_members where user_id=auth.uid()));
 drop policy if exists conversations_create on public.conversations;
 create policy conversations_create on public.conversations for insert to authenticated with check(true);
 
 drop policy if exists members_read on public.conversation_members;
-create policy members_read on public.conversation_members for select to authenticated using(
- exists(select 1 from public.conversation_members mine where mine.conversation_id=conversation_id and mine.user_id=auth.uid()));
+create policy members_read on public.conversation_members for select to authenticated using(user_id=auth.uid());
 drop policy if exists members_join on public.conversation_members;
-create policy members_join on public.conversation_members for insert to authenticated with check(user_id=auth.uid() or exists(
- select 1 from public.conversation_members mine where mine.conversation_id=conversation_id and mine.user_id=auth.uid()));
+create policy members_join on public.conversation_members for insert to authenticated with check(user_id=auth.uid());
 
 drop policy if exists messages_read_member on public.messages;
 create policy messages_read_member on public.messages for select to authenticated using(
