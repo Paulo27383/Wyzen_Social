@@ -83,7 +83,7 @@ class MainActivity : Activity() {
         textSize = 16f
         setSingleLine(!password)
         setPadding(16, 10, 16, 10)
-        background = rounded(panel, 14)
+        background = rounded(panel, 14f)
         if (password) inputType = 129
     }
 
