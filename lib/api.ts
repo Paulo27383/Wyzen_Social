@@ -1,0 +1,5 @@
+import {supabase} from "./supabase";
+export async function loadFeed(){const {data,error}=await supabase.from("posts").select("*,profiles(username,full_name,avatar_url),likes(count),comments(count)").order("created_at",{ascending:false}).limit(50);if(error)throw error;return data??[];}
+export async function publishPost(userId:string,content:string,media:any){const {error}=await supabase.from("posts").insert({user_id:userId,content:content.trim(),media_url:media?.url??null,media_type:media?.type??null});if(error)throw error;}
+export async function toggleLike(userId:string,postId:string){const {data}=await supabase.from("likes").select("post_id").eq("user_id",userId).eq("post_id",postId).maybeSingle();const q=data?supabase.from("likes").delete().eq("user_id",userId).eq("post_id",postId):supabase.from("likes").insert({user_id:userId,post_id:postId});const {error}=await q;if(error)throw error;}
+export async function addComment(userId:string,postId:string,content:string){const {error}=await supabase.from("comments").insert({user_id:userId,post_id:postId,content:content.trim()});if(error)throw error;}

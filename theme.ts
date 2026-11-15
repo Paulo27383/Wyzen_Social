@@ -1,0 +1,1 @@
+export const theme={background:"#10131B",surface:"#191E2A",surface2:"#222A39",text:"#F5F7FB",muted:"#929BAE",accent:"#8B7CFF",border:"#30394B"};
