@@ -56,3 +56,19 @@ npx eas-cli build --platform android --profile preview
 Ações externas ou destrutivas exigem confirmação. O executor Android atual só tem suporte inicial para abrir URLs HTTPS; não existe controlo geral do telemóvel.
 
 Próximas etapas: validar a API, adicionar autenticação de utilizadores, melhorar o conjunto de treino em português, criar avaliação de qualidade e evoluir para modelos próprios mais capazes com dados e recursos computacionais adequados.
+
+## Visão de produto aprovada
+
+- Interface minimalista: apenas a letra **W** ao centro; sem grelhas de módulos nem painéis cheios de botões.
+- Arranque com animação e estados de processamento; autenticação inicial por nome e identificação vocal, com sessão persistente protegida no dispositivo e recuperação segura.
+- Produto de utilizador único, associado ao proprietário do dispositivo.
+- Interação principal por voz e linguagem natural; texto disponível como alternativa discreta.
+- Objetivo de autonomia: responder com clareza, distinguir factos de incerteza, planear tarefas e executar ações autorizadas.
+- Integrações iniciais pretendidas: WhatsApp, Facebook, Instagram, TikTok, Google (Gmail, Drive, Calendar e Pesquisa Google) e Google Maps.
+- Arquitetura extensível por conectores para permitir adicionar outras contas e serviços no futuro, sem redesenhar o núcleo.
+- As integrações usarão APIs oficiais/OAuth quando disponíveis, permissões mínimas e revogáveis. Capacidades variam por plataforma, tipo de conta e aprovação.
+- Ações com impacto externo (enviar, publicar, apagar, alterar definições ou fazer compras) exigem confirmação explícita.
+
+## Limites de integração
+
+A lista de integrações é o objetivo do produto, não uma declaração de que todas as operações já estão disponíveis. WhatsApp, Meta, TikTok e Google têm regras, permissões, revisões e limitações próprias. A implementação deverá apresentar claramente o que cada conta permite fazer. O reconhecimento de voz, isoladamente, não será tratado como autenticação infalível; deverá ser combinado com mecanismos seguros do Android.
