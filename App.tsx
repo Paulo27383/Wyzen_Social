@@ -1,169 +1,206 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput,
-  TouchableOpacity, View
+  Alert, Animated, Easing, Keyboard, StatusBar, StyleSheet, Text,
+  TextInput, TouchableWithoutFeedback, View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
+import * as SecureStore from "expo-secure-store";
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
 
+const PROFILE_KEY = "wyzen.owner.profile.v1";
+const SESSION_KEY = "wyzen.owner.session.v1";
+const WAKE_PHRASE = "A minha voz é a minha chave";
+
+type Profile = { name: string };
+
 export default function App() {
-  const [command, setCommand] = useState("");
+  const [phase, setPhase] = useState<"boot" | "enroll" | "ready">("boot");
+  const [name, setName] = useState("");
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [answer, setAnswer] = useState("");
+  const [status, setStatus] = useState("A iniciar o núcleo WYZEN");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [enrollingVoice, setEnrollingVoice] = useState(false);
+  const [command, setCommand] = useState("");
+  const pulse = useRef(new Animated.Value(1)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1.08, duration: 1050, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 1050, easing: Easing.inOut(Easing.ease), useNativeDriver: true })
+    ]));
+    animation.start();
+    const boot = async () => {
+      try {
+        setStatus("A verificar a sessão");
+        const savedProfile = await SecureStore.getItemAsync(PROFILE_KEY);
+        const savedSession = await SecureStore.getItemAsync(SESSION_KEY);
+        await new Promise(resolve => setTimeout(resolve, 1300));
+        if (savedProfile && savedSession === "active") {
+          const parsed = JSON.parse(savedProfile) as Profile;
+          setProfile(parsed);
+          setPhase("ready");
+          setStatus("Pronta para te ouvir");
+        } else {
+          setPhase("enroll");
+          setStatus("Configuração inicial");
+        }
+      } catch {
+        setPhase("enroll");
+        setStatus("Configuração inicial");
+      }
+    };
+    boot();
+    return () => animation.stop();
+  }, [pulse]);
 
   useSpeechRecognitionEvent("result", event => {
-    const transcript = event.results?.[0]?.transcript;
-    if (transcript) setCommand(transcript);
+    const transcript = event.results?.[0]?.transcript?.trim();
+    if (!transcript) return;
+    if (enrollingVoice) {
+      const owner: Profile = { name: name.trim() };
+      SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(owner)).then(() =>
+        SecureStore.setItemAsync(SESSION_KEY, "active")
+      ).then(() => {
+        setProfile(owner);
+        setPhase("ready");
+        setEnrollingVoice(false);
+        setStatus("Sessão iniciada. Olá, " + owner.name);
+      }).catch(() => {
+        setEnrollingVoice(false);
+        setStatus("Não foi possível guardar a sessão");
+        Alert.alert("WYZEN", "Não foi possível guardar a sessão neste dispositivo.");
+      });
+    } else {
+      setCommand(transcript);
+      setStatus("A compreender o teu pedido");
+      runCommand(transcript);
+    }
   });
-  useSpeechRecognitionEvent("end", () => setListening(false));
+  useSpeechRecognitionEvent("end", () => {
+    setListening(false);
+    if (enrollingVoice) setStatus("Toca no W e repete a frase de ativação");
+  });
   useSpeechRecognitionEvent("error", event => {
     setListening(false);
-    Alert.alert("Reconhecimento de voz", event.message || "Não foi possível reconhecer a voz.");
+    setEnrollingVoice(false);
+    setStatus("Voz indisponível");
+    Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const startVoice = async () => {
-    try {
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Permissão necessária", "Autoriza o acesso ao microfone para ditar comandos.");
-        return;
-      }
-      setListening(true);
-      ExpoSpeechRecognitionModule.start({
-        lang: "pt-PT",
-        interimResults: true,
-        continuous: false
-      });
-    } catch {
-      setListening(false);
-      Alert.alert("Voz indisponível", "A voz requer uma compilação Android nativa com o módulo instalado.");
-    }
-  };
-
-  const run = async () => {
-    if (!command.trim() || busy) return;
+  const runCommand = async (value: string) => {
+    if (!value.trim() || busy) return;
     setBusy(true);
     setAnswer("");
+    setStatus("A pensar");
     try {
-      const reply = await askWyzen(command.trim());
+      const reply = await askWyzen(value.trim());
       setAnswer(reply.answer);
+      setStatus("Concluído");
+      if (reply.answer) Speech.speak(reply.answer, { language: "pt-PT", rate: 0.95 });
     } catch (error) {
-      setAnswer(error instanceof Error ? error.message : "Erro ao contactar o motor WYZEN.");
+      const message = error instanceof Error ? error.message : "Erro no motor WYZEN.";
+      setAnswer(message);
+      setStatus("Não foi possível concluir");
     } finally {
       setBusy(false);
     }
   };
 
-  const speak = () => {
-    if (answer) Speech.speak(answer, { language: "pt-PT", rate: 0.95 });
+  const startVoice = async () => {
+    if (busy || listening) return;
+    if (phase === "enroll" && !name.trim()) {
+      setStatus("Escreve primeiro o teu nome");
+      return;
+    }
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permissão necessária", "Autoriza o microfone para configurar e utilizar a WYZEN.");
+        return;
+      }
+      setEnrollingVoice(phase === "enroll");
+      setListening(true);
+      setStatus(phase === "enroll" ? "A registar a tua frase de ativação" : "A ouvir");
+      ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
+    } catch {
+      setListening(false);
+      setEnrollingVoice(false);
+      setStatus("Voz indisponível nesta compilação");
+    }
+  };
+
+  const sendTypedCommand = () => {
+    const value = command.trim();
+    if (!value) return;
+    Keyboard.dismiss();
+    runCommand(value);
+    setCommand("");
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.logo}><Text style={styles.logoText}>W</Text></View>
-          <View>
-            <Text style={styles.brand}>WYZEN AI</Text>
-            <Text style={styles.subtitle}>ASSISTENTE PESSOAL INTELIGENTE</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#050711" />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.screen}>
+          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text></View>
+          <View style={styles.center}>
+            <Animated.View style={{ transform: [{ scale: pulse }] }}>
+              <Text onPress={startVoice} style={styles.w}>W</Text>
+            </Animated.View>
+            <Text style={styles.status}>{status}</Text>
+            {phase === "enroll" && (
+              <View style={styles.enroll}>
+                <Text style={styles.title}>A tua identidade</Text>
+                <Text style={styles.hint}>Indica o teu nome. Depois toca no W e fala para iniciar a tua sessão.</Text>
+                <TextInput value={name} onChangeText={setName} placeholder="O teu nome"
+                  placeholderTextColor="#68718A" autoCapitalize="words" style={styles.nameInput} />
+                <Text style={styles.phrase}>Frase de ativação: “{WAKE_PHRASE}”</Text>
+              </View>
+            )}
+            {phase === "ready" && !!answer && (
+              <Text selectable style={styles.answer}>{answer}</Text>
+            )}
           </View>
-          <View style={styles.status}><View style={styles.dot}/><Text style={styles.statusText}>MOTOR LOCAL</Text></View>
-        </View>
-
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>O TEU MOTOR DE EXECUÇÃO</Text>
-          <Text style={styles.heading}>Dá uma ordem.\nA WYZEN planeia.</Text>
-          <Text style={styles.description}>Um assistente Android para voz, texto, inteligência e ferramentas autorizadas.</Text>
-          <View style={styles.orb}><Text style={styles.orbText}>✦</Text></View>
-        </View>
-
-        <Text style={styles.section}>COMANDO</Text>
-        <View style={styles.composer}>
-          <TextInput value={command} onChangeText={setCommand}
-            placeholder="Ex.: ajuda-me a organizar o meu dia..."
-            placeholderTextColor="#77819A" multiline style={styles.input}/>
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.voiceButton} onPress={startVoice}>
-              <Text style={styles.voiceText}>{listening ? "A ouvir..." : "🎙  DITAR"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.runButton} onPress={run} disabled={busy}>
-              <Text style={styles.runText}>{busy ? "A pensar..." : "Executar ordem  →"}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {!!answer && <View style={styles.result}>
-          <Text style={styles.resultTitle}>Resposta WYZEN</Text>
-          <Text style={styles.answer}>{answer}</Text>
-          <TouchableOpacity onPress={speak} style={styles.speakButton}>
-            <Text style={styles.speakText}>🔊 Ouvir resposta</Text>
-          </TouchableOpacity>
-        </View>}
-
-        <Text style={styles.section}>MÓDULOS DO ASSISTENTE</Text>
-        <View style={styles.grid}>
-          {[
-            ["✦", "Inteligência", "Modelo IA no backend"],
-            ["⌘", "Automação", "Motor de tarefas"],
-            ["◉", "Voz", "Ditado e leitura"],
-            ["▤", "Ficheiros", "Integração em preparação"],
-            ["◎", "Pesquisa", "Ferramentas em preparação"],
-            ["⬡", "Segurança", "Permissões e histórico"]
-          ].map(([icon, title, detail]) => (
-            <View key={title} style={styles.module}>
-              <Text style={styles.moduleIcon}>{icon}</Text>
-              <Text style={styles.moduleTitle}>{title}</Text>
-              <Text style={styles.moduleDetail}>{detail}</Text>
+          {phase === "ready" && (
+            <View style={styles.composer}>
+              <TextInput value={command} onChangeText={setCommand}
+                onSubmitEditing={sendTypedCommand} returnKeyType="send"
+                placeholder="Ou escreve um comando..." placeholderTextColor="#68718A"
+                style={styles.commandInput} multiline />
+              <Text onPress={sendTypedCommand} style={styles.send}>ENVIAR</Text>
             </View>
-          ))}
+          )}
+          <Text style={styles.footer}>ASSISTENTE PESSOAL • SESSÃO PRIVADA</Text>
         </View>
-        <Text style={styles.footer}>WYZEN AI • ANDROID • AUTONOMIA AVANÇADA COM CONTROLO</Text>
-      </ScrollView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#080D19" },
-  container: { padding: 20, paddingBottom: 42 },
-  header: { flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 30 },
-  logo: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#5267F5", alignItems: "center", justifyContent: "center" },
-  logoText: { color: "white", fontSize: 25, fontWeight: "900" },
-  brand: { color: "white", fontSize: 17, fontWeight: "900", letterSpacing: 2 },
-  subtitle: { color: "#8490AA", fontSize: 8, letterSpacing: 1.2, marginTop: 3 },
-  status: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 7, height: 7, borderRadius: 5, backgroundColor: "#39D6A0" },
-  statusText: { color: "#39D6A0", fontSize: 9, fontWeight: "800" },
-  hero: { backgroundColor: "#111B34", borderRadius: 25, padding: 22, marginBottom: 27, overflow: "hidden" },
-  eyebrow: { color: "#8EA0FF", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
-  heading: { color: "white", fontSize: 31, lineHeight: 37, fontWeight: "900", marginTop: 13 },
-  description: { color: "#AAB5CE", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 260 },
-  orb: { position: "absolute", right: 18, bottom: 20, width: 76, height: 76, borderRadius: 40, borderWidth: 1, borderColor: "#667BFF", alignItems: "center", justifyContent: "center", backgroundColor: "#263A76" },
-  orbText: { color: "#C6CEFF", fontSize: 39 },
-  section: { color: "#8996B3", fontSize: 10, fontWeight: "900", letterSpacing: 1.8, marginBottom: 12 },
-  composer: { backgroundColor: "#11192B", borderColor: "#26334D", borderWidth: 1, borderRadius: 18, padding: 14, marginBottom: 24 },
-  input: { minHeight: 76, color: "white", fontSize: 14, textAlignVertical: "top" },
-  actions: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginTop: 10 },
-  voiceButton: { borderRadius: 12, borderWidth: 1, borderColor: "#3B4967", paddingHorizontal: 14, paddingVertical: 12 },
-  voiceText: { color: "#D7DDF0", fontSize: 11, fontWeight: "800" },
-  runButton: { backgroundColor: "#596CF6", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flex: 1, alignItems: "center" },
-  runText: { color: "white", fontWeight: "800", fontSize: 12 },
-  result: { backgroundColor: "#101A2D", borderRadius: 17, padding: 16, marginBottom: 25, borderWidth: 1, borderColor: "#33446A" },
-  resultTitle: { color: "white", fontSize: 17, fontWeight: "800", marginBottom: 13 },
-  answer: { color: "#C5CEE1", fontSize: 13, lineHeight: 20 },
-  speakButton: { backgroundColor: "#202F55", padding: 12, borderRadius: 10, alignItems: "center", marginTop: 14 },
-  speakText: { color: "white", fontWeight: "700", fontSize: 12 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  module: { width: "48%", minHeight: 105, backgroundColor: "#11192B", borderRadius: 15, padding: 14, borderWidth: 1, borderColor: "#202C43" },
-  moduleIcon: { color: "#93A0FF", fontSize: 20, marginBottom: 8 },
-  moduleTitle: { color: "white", fontWeight: "800", fontSize: 13 },
-  moduleDetail: { color: "#8793AC", fontSize: 10, marginTop: 4 },
-  footer: { color: "#5E6A82", fontSize: 8, textAlign: "center", marginTop: 28, letterSpacing: 1 }
+  safe: { flex: 1, backgroundColor: "#050711" },
+  screen: { flex: 1, backgroundColor: "#050711", paddingHorizontal: 25, justifyContent: "space-between" },
+  top: { alignItems: "center", paddingTop: 18 },
+  wordmark: { color: "#8C9BFF", fontSize: 11, fontWeight: "800", letterSpacing: 7 },
+  center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%" },
+  w: { color: "#F4F6FF", fontSize: 142, fontWeight: "200", letterSpacing: -13, textShadowColor: "#536BFF", textShadowRadius: 34, textShadowOffset: { width: 0, height: 0 } },
+  status: { color: "#929CB7", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
+  enroll: { width: "100%", marginTop: 38, alignItems: "center" },
+  title: { color: "#F4F6FF", fontSize: 19, fontWeight: "600" },
+  hint: { color: "#929CB7", fontSize: 12, lineHeight: 19, textAlign: "center", marginTop: 9, maxWidth: 290 },
+  nameInput: { width: "82%", color: "white", borderBottomWidth: 1, borderBottomColor: "#46527A", paddingVertical: 12, textAlign: "center", fontSize: 16, marginTop: 17 },
+  phrase: { color: "#68718A", fontSize: 10, marginTop: 13, textAlign: "center" },
+  answer: { color: "#E0E5F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
+  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#202842", paddingVertical: 12, gap: 12 },
+  commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
+  send: { color: "#9AA8FF", fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+  footer: { color: "#4E5870", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
