@@ -100,7 +100,7 @@ class MainActivity : Activity() {
     }
     private fun signUp(name:String,email:String,password:String) {
         busy("A criar conta...")
-        val data=JSONObject().put("full_name",name).put("username",email.substringBefore("@"))
+        val data=JSONObject().put("full_name",name)
         api("POST","/auth/v1/signup",JSONObject().put("email",email).put("password",password).put("data",data),false){v,e->
             if(e!=null){authScreen();alert(e);return@api}
             val obj=v as? JSONObject
