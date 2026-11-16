@@ -31,7 +31,11 @@ alter table public.conversations add column if not exists is_group boolean not n
 
 create or replace function public.wyzen_is_member(p_user uuid default auth.uid())
 returns boolean language sql stable security definer set search_path=public
-as $$ select exists(select 1 from public.wyzen_members where user_id=p_user and active); $$;
+as $ select exists(select 1 from public.wyzen_members where user_id=p_user and active); $;
+
+create or replace function public.wyzen_is_conversation_member(p_conversation uuid, p_user uuid default auth.uid())
+returns boolean language sql stable security definer set search_path=public
+as $ select exists(select 1 from public.conversation_members where conversation_id=p_conversation and user_id=p_user); $;
 
 create or replace function public.wyzen_bootstrap_admin()
 returns jsonb language plpgsql security definer set search_path=public
@@ -46,6 +50,7 @@ begin
     update public.wyzen_settings set admin_user_id=auth.uid() where singleton=true;
     insert into public.wyzen_members(user_id,role,active) values(auth.uid(),'admin',true)
     on conflict(user_id) do update set role='admin',active=true;
+    cfg.admin_user_id := auth.uid();
   end if;
   if cfg.admin_user_id <> auth.uid() and not public.wyzen_is_member(auth.uid()) then
     return jsonb_build_object('is_member',false,'is_admin',false);
@@ -111,7 +116,7 @@ alter table public.wyzen_invites enable row level security;
 
 drop policy if exists profiles_read on public.profiles;
 create policy profiles_read on public.profiles for select to authenticated
-using (public.wyzen_is_member(auth.uid()) and exists(select 1 from public.wyzen_members m where m.user_id=profiles.id and m.active));
+using (public.wyzen_is_member(auth.uid()) and public.wyzen_is_member(profiles.id));
 drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles for update to authenticated
 using (id=auth.uid() and public.wyzen_is_member(auth.uid())) with check(id=auth.uid() and public.wyzen_is_member(auth.uid()));
@@ -120,24 +125,25 @@ create policy profiles_insert_self on public.profiles for insert to authenticate
 
 drop policy if exists conversations_member_read on public.conversations;
 create policy conversations_member_read on public.conversations for select to authenticated
-using (public.wyzen_is_member(auth.uid()) and exists(select 1 from public.conversation_members cm where cm.conversation_id=conversations.id and cm.user_id=auth.uid()));
+using (public.wyzen_is_member(auth.uid()) and public.wyzen_is_conversation_member(conversations.id,auth.uid()));
 drop policy if exists conversations_create on public.conversations;
 drop policy if exists members_read on public.conversation_members;
 create policy members_read on public.conversation_members for select to authenticated
-using (public.wyzen_is_member(auth.uid()) and exists(select 1 from public.conversation_members mine where mine.conversation_id=conversation_members.conversation_id and mine.user_id=auth.uid()));
+using (public.wyzen_is_member(auth.uid()) and public.wyzen_is_conversation_member(conversation_members.conversation_id,auth.uid()));
 drop policy if exists members_join on public.conversation_members;
 
 drop policy if exists messages_read_member on public.messages;
 create policy messages_read_member on public.messages for select to authenticated
-using (public.wyzen_is_member(auth.uid()) and exists(select 1 from public.conversation_members cm where cm.conversation_id=messages.conversation_id and cm.user_id=auth.uid()));
+using (public.wyzen_is_member(auth.uid()) and public.wyzen_is_conversation_member(messages.conversation_id,auth.uid()));
 drop policy if exists messages_send_member on public.messages;
 create policy messages_send_member on public.messages for insert to authenticated
-with check(sender_id=auth.uid() and public.wyzen_is_member(auth.uid()) and exists(select 1 from public.conversation_members cm where cm.conversation_id=messages.conversation_id and cm.user_id=auth.uid()));
+with check(sender_id=auth.uid() and public.wyzen_is_member(auth.uid()) and public.wyzen_is_conversation_member(messages.conversation_id,auth.uid()));
 drop policy if exists messages_update_member on public.messages;
 create policy messages_update_member on public.messages for update to authenticated
 using(sender_id=auth.uid() and public.wyzen_is_member(auth.uid())) with check(sender_id=auth.uid());
 
 grant execute on function public.wyzen_is_member(uuid) to authenticated;
+grant execute on function public.wyzen_is_conversation_member(uuid,uuid) to authenticated;
 grant execute on function public.wyzen_bootstrap_admin() to authenticated;
 grant execute on function public.wyzen_redeem_invite(text) to authenticated;
 grant execute on function public.wyzen_create_invite(integer,integer) to authenticated;
