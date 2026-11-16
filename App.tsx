@@ -74,7 +74,7 @@ export default function App() {
             <Text style={styles.brand}>WYZEN AI</Text>
             <Text style={styles.subtitle}>ASSISTENTE PESSOAL INTELIGENTE</Text>
           </View>
-          <View style={styles.status}><View style={styles.dot}/><Text style={styles.statusText}>ONLINE LOCAL</Text></View>
+          <View style={styles.status}><View style={styles.dot}/><Text style={styles.statusText}>MOTOR LOCAL</Text></View>
         </View>
 
         <View style={styles.hero}>
