@@ -35,7 +35,7 @@ class MainActivity : Activity() {
     private lateinit var messageList: LinearLayout
     private val bg = Color.rgb(8,8,8)
     private val card = Color.rgb(23,23,23)
-    private val lime = Color.rgb(183,245,66)
+    private val lime = Color.rgb(239,45,62)
     private val muted = Color.rgb(160,160,160)
     private val white = Color.WHITE
     private val refreshMessages = object: Runnable {
@@ -79,7 +79,7 @@ class MainActivity : Activity() {
     private fun authScreen() {
         initRoot()
         root.gravity=Gravity.CENTER_VERTICAL
-        root.addView(text("W",34f,lime,true))
+        root.addView(text("WYZEN",30f,lime,true))
         root.addView(text("P O D O L S K Y",9f,muted,true))
         root.addView(text("MENSAGENS PRIVADAS · MÁXIMO 50 MEMBROS",10f,muted,true))
         root.addView(gap(12))
@@ -170,7 +170,7 @@ class MainActivity : Activity() {
         conversationId="";handler.removeCallbacks(refreshMessages);initRoot()
         val header=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
         val brand=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-        brand.addView(text("W",30f,lime,true).apply{setPadding(0,0,0,0)})
+        brand.addView(text("WYZEN",24f,lime,true).apply{setPadding(0,0,0,0)})
         brand.addView(text("P O D O L S K Y",8f,muted,true).apply{setPadding(0,0,0,0)})
         header.addView(brand,LinearLayout.LayoutParams(0,-2,1f))
         header.addView(button("＋",true){createConversation(false)})
@@ -206,15 +206,73 @@ class MainActivity : Activity() {
         bottomNav("chats")
     }
     private fun bottomNav(active:String) {
-        val bar=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,dp(7),0,0)}
+        val bar=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,dp(5),0,0)}
         fun nav(label:String,key:String,action:()->Unit){
-            val b=TextView(this).apply{text=label;textSize=11f;gravity=Gravity.CENTER;setTextColor(if(active==key)lime else muted);setPadding(dp(8),dp(10),dp(8),dp(10));setOnClickListener{action()}}
-            bar.addView(b,LinearLayout.LayoutParams(0,dp(46),1f))
+            val b=TextView(this).apply{text=label;textSize=10.5f;gravity=Gravity.CENTER;setTextColor(if(active==key)lime else muted);setPadding(dp(3),dp(10),dp(3),dp(10));setOnClickListener{action()}}
+            bar.addView(b,LinearLayout.LayoutParams(0,dp(48),1f))
         }
         nav("Conversas","chats"){homeScreen()}
-        nav("Membros","members"){memberScreen()}
+        nav("Estados","status"){statusesScreen()}
+        nav("Grupos","groups"){groupsScreen()}
         nav("Perfil","profile"){profileScreen()}
         root.addView(bar)
+    }
+    private fun statusesScreen() {
+        handler.removeCallbacks(refreshMessages);initRoot()
+        val head=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        head.addView(text("Estados",25f,white,true))
+        head.addView(text("Partilha actualizações que desaparecem após 24 horas.",12f,muted))
+        root.addView(head);root.addView(gap(12))
+        val composer=input("O que queres partilhar?")
+        root.addView(composer,params());root.addView(gap(7))
+        root.addView(button("PUBLICAR ESTADO",true){
+            val content=composer.text.toString().trim()
+            if(content.isBlank()){toast("Escreve uma actualização primeiro.");return@button}
+            val payload=JSONObject().put("user_id",uid).put("content",content)
+            api("POST","/rest/v1/wyzen_statuses",payload,true){_,e->
+                if(e!=null)showFriendlyError(e)else{toast("Estado publicado.");statusesScreen()}
+            }
+        },params())
+        root.addView(gap(16));root.addView(text("ACTUALIZAÇÕES RECENTES",11f,lime,true))
+        val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        scroll.addView(list);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        api("GET","/rest/v1/wyzen_statuses?select=id,user_id,content,created_at&expires_at=gt.now()&order=created_at.desc&limit=100",null,true){v,e->
+            if(e!=null){showFriendlyError(e);return@api}
+            val rows=v as? JSONArray?:JSONArray()
+            if(rows.length()==0)list.addView(text("Ainda não há estados publicados.",13f,muted))
+            for(i in 0 until rows.length()){
+                val row=rows.optJSONObject(i)?:continue
+                val cardView=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(13),dp(11),dp(13),dp(11));background=android.graphics.drawable.GradientDrawable().apply{setColor(card);cornerRadius=dp(14).toFloat()}}
+                cardView.addView(text(if(row.optString("user_id")==uid)"O teu estado" else "Membro WYZEN",11f,lime,true))
+                cardView.addView(text(row.optString("content"),15f,white))
+                list.addView(cardView,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(8)})
+            }
+        }
+        bottomNav("status")
+    }
+    private fun groupsScreen() {
+        handler.removeCallbacks(refreshMessages);initRoot()
+        root.addView(text("Grupos",25f,white,true))
+        root.addView(text("As tuas conversas em grupo",12f,muted))
+        root.addView(gap(12))
+        root.addView(button("＋  CRIAR GRUPO",true){createConversation(true)},params())
+        root.addView(gap(10))
+        val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        scroll.addView(list);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        api("GET","/rest/v1/conversation_members?select=conversation_id,conversations(id,title,is_group)&user_id=eq."+uid,null,true){v,e->
+            if(e!=null){showFriendlyError(e);return@api}
+            val rows=v as? JSONArray?:JSONArray();var count=0
+            for(i in 0 until rows.length()){
+                val conv=rows.optJSONObject(i)?.optJSONObject("conversations")?:continue
+                if(!conv.optBoolean("is_group"))continue
+                count++
+                val title=conv.optString("title").ifBlank{"Grupo WYZEN"};val id=conv.optString("id")
+                val item=button("●   "+title){openConversation(id,title)}
+                list.addView(item,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(8)})
+            }
+            if(count==0)list.addView(text("Ainda não participas em grupos. Cria o primeiro grupo.",13f,muted))
+        }
+        bottomNav("groups")
     }
     private fun memberScreen() {
         handler.removeCallbacks(refreshMessages);initRoot()
@@ -262,7 +320,7 @@ class MainActivity : Activity() {
         root.addView(text("O TEU PERFIL",22f,lime,true))
         root.addView(gap(12))
         val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(16),dp(16),dp(16));background=android.graphics.drawable.GradientDrawable().apply{setColor(card);cornerRadius=dp(18).toFloat()}}
-        panel.addView(text("W",42f,lime,true));panel.addView(text("P O D O L S K Y",9f,muted,true))
+        panel.addView(text("WYZEN",34f,lime,true));panel.addView(text("P O D O L S K Y",9f,muted,true))
         panel.addView(text(if(admin)"Administrador" else "Membro autorizado",14f,white,true))
         panel.addView(text("WYZEN CHAT · Comunidade privada · máximo 50 membros",12f,muted))
         root.addView(panel,params());root.addView(gap(18))
