@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "WYZEN AI",
+    "slug": "wyzen-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.wyzen.ai",
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "plugins": [
+      ["expo-speech-recognition", {
+        "microphonePermission": "WYZEN AI precisa do microfone para receber comandos de voz.",
+        "speechRecognitionPermission": "WYZEN AI usa reconhecimento de voz para compreender os teus comandos."
+      }]
+    ]
+  }
+}
