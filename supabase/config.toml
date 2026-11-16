@@ -1,0 +1,2 @@
+[functions.wyzen-assistant]
+verify_jwt = true
