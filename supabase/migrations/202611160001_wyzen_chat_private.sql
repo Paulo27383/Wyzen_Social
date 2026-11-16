@@ -101,7 +101,7 @@ begin
   if auth.uid() is null or not public.wyzen_is_member(auth.uid()) then raise exception 'MEMBERS_ONLY'; end if;
   if coalesce(array_length(p_member_ids,1),0) < 1 then raise exception 'ADD_AT_LEAST_ONE_MEMBER'; end if;
   if (select count(*) from unnest(p_member_ids)) > 49 then raise exception 'TOO_MANY_MEMBERS'; end if;
-  if exists(select 1 from unnest(p_member_ids) x where not public.wyzen_is_member(x)) then raise exception 'ALL_PARTICIPANTS_MUST_BE_MEMBERS'; end if;
+  if exists(select 1 from unnest(p_member_ids) as u(member_id) where not public.wyzen_is_member(member_id)) then raise exception 'ALL_PARTICIPANTS_MUST_BE_MEMBERS'; end if;
   insert into public.conversations(created_by,title,is_group) values(auth.uid(),coalesce(p_title,''),p_is_group) returning id into new_id;
   insert into public.conversation_members(conversation_id,user_id) values(new_id,auth.uid()) on conflict do nothing;
   foreach member_id in array p_member_ids loop
