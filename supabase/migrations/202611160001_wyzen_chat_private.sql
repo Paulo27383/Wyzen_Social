@@ -142,6 +142,12 @@ drop policy if exists messages_update_member on public.messages;
 create policy messages_update_member on public.messages for update to authenticated
 using(sender_id=auth.uid() and public.wyzen_is_member(auth.uid())) with check(sender_id=auth.uid());
 
+revoke all on function public.wyzen_is_member(uuid) from public, anon;
+revoke all on function public.wyzen_is_conversation_member(uuid,uuid) from public, anon;
+revoke all on function public.wyzen_bootstrap_admin() from public, anon;
+revoke all on function public.wyzen_redeem_invite(text) from public, anon;
+revoke all on function public.wyzen_create_invite(integer,integer) from public, anon;
+revoke all on function public.wyzen_create_conversation(text,boolean,uuid[]) from public, anon;
 grant execute on function public.wyzen_is_member(uuid) to authenticated;
 grant execute on function public.wyzen_is_conversation_member(uuid,uuid) to authenticated;
 grant execute on function public.wyzen_bootstrap_admin() to authenticated;
