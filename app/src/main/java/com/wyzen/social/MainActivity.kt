@@ -28,6 +28,8 @@ class MainActivity : Activity() {
     private var uid = ""
     private var admin = false
     private var conversationId = ""
+    private var pollingFailures = 0
+    private var lastShownError = ""
     private lateinit var root: LinearLayout
     private lateinit var messageBox: EditText
     private lateinit var messageList: LinearLayout
@@ -39,7 +41,7 @@ class MainActivity : Activity() {
     private val refreshMessages = object: Runnable {
         override fun run() {
             if (conversationId.isNotBlank()) fetchMessages(conversationId, false)
-            handler.postDelayed(this, 4000)
+            handler.postDelayed(this, if (pollingFailures > 0) 15000 else 8000)
         }
     }
 
@@ -180,7 +182,7 @@ class MainActivity : Activity() {
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
         scroll.addView(list);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         api("GET","/rest/v1/conversation_members?select=conversation_id,conversations(id,title,is_group)&user_id=eq."+uid,null,true){v,e->
-            if(e!=null){toast(e);return@api}
+            if(e!=null){list.removeAllViews();list.addView(text("Não foi possível carregar as conversas. Verifica a configuração do servidor.",14f,muted));showFriendlyError(e);return@api}
             list.removeAllViews()
             val rows=v as? JSONArray ?: JSONArray()
             if(rows.length()==0){list.addView(text("Ainda não tens conversas. Cria uma conversa ou um grupo.",14f,muted));return@api}
@@ -232,7 +234,7 @@ class MainActivity : Activity() {
         }
     }
     private fun openConversation(id:String,title:String) {
-        conversationId=id;handler.removeCallbacks(refreshMessages);initRoot()
+        conversationId=id;pollingFailures=0;handler.removeCallbacks(refreshMessages);initRoot()
         val top=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
         top.addView(button("‹"){handler.removeCallbacks(refreshMessages);homeScreen()})
         top.addView(text(title,18f,white,true),LinearLayout.LayoutParams(0,-2,1f))
@@ -248,7 +250,8 @@ class MainActivity : Activity() {
     }
     private fun fetchMessages(id:String,initial:Boolean) {
         api("GET","/rest/v1/messages?select=id,content,sender_id,created_at&conversation_id=eq."+id+"&order=created_at.asc&limit=150",null,true){v,e->
-            if(e!=null){if(initial)toast(e);return@api}
+            if(e!=null){pollingFailures++;if(initial)showFriendlyError(e);return@api}
+            pollingFailures=0
             if(!::messageList.isInitialized)return@api
             messageList.removeAllViews()
             val rows=v as? JSONArray?:JSONArray()
@@ -281,7 +284,18 @@ class MainActivity : Activity() {
     }
     private fun busy(s:String){initRoot();root.addView(text("WYZEN CHAT",26f,lime,true));root.addView(text(s,14f,white))}
     private fun alert(s:String){AlertDialog.Builder(this).setTitle("WYZEN CHAT").setMessage(s).setPositiveButton("OK",null).show()}
-    private fun toast(s:String){Toast.makeText(this,s,Toast.LENGTH_LONG).show()}
+    private fun toast(s:String){Toast.makeText(this,s,Toast.LENGTH_SHORT).show()}
+    private fun showFriendlyError(raw:String) {
+        val clean = when {
+            raw.contains("HTTP 401") || raw.contains("JWT", true) -> "A sessão expirou. Sai da conta e volta a entrar."
+            raw.contains("HTTP 403") || raw.contains("permission", true) || raw.contains("policy", true) -> "O acesso foi recusado pelas permissões da base de dados. É necessária uma correcção no Supabase."
+            raw.contains("HTTP 404") || raw.contains("does not exist", true) -> "Falta uma tabela ou função no Supabase. A configuração da base de dados precisa de ser corrigida."
+            raw.contains("HTTP 400") -> "O servidor rejeitou os dados enviados. A operação não foi concluída."
+            raw.contains("HTTP 5") -> "O servidor Supabase está temporariamente indisponível. Tenta novamente dentro de instantes."
+            else -> "Não foi possível concluir esta operação. Verifica a ligação e tenta novamente."
+        }
+        if(clean != lastShownError) { lastShownError = clean; alert(clean) }
+    }
     private fun api(method:String,path:String,body:JSONObject?,auth:Boolean,done:(Any?,String?)->Unit) {
         val b=Request.Builder().url(base+path).addHeader("apikey",apiKey).addHeader("Accept","application/json")
         if(auth&&token.isNotBlank())b.addHeader("Authorization","Bearer "+token)
