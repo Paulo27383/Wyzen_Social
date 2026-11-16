@@ -83,7 +83,8 @@ class MainActivity : Activity() {
         val fullName=input("Nome completo (para criar conta)")
         val email=input("Email")
         val password=input("Palavra-passe",true)
-        val invite=input("Código de convite (se já tens)")
+        val invite=input("Código de convite (obrigatório para convidados)")
+        invite.setText(getSharedPreferences("wyzen_session",MODE_PRIVATE).getString("pending_invite","") ?: "")
         root.addView(fullName,params());root.addView(gap(9))
         root.addView(email,params());root.addView(gap(9))
         root.addView(password,params());root.addView(gap(9))
@@ -95,24 +96,36 @@ class MainActivity : Activity() {
         root.addView(gap(8))
         root.addView(button("CRIAR CONTA"){
             val n=fullName.text.toString().trim();val e=email.text.toString().trim();val p=password.text.toString()
-            if(n.isBlank()||e.isBlank()||p.length<6)toast("Preenche nome, email e palavra-passe (mínimo 6 caracteres).") else signUp(n,e,p)
+            if(n.isBlank()||e.isBlank()||p.length<6)toast("Preenche nome, email e palavra-passe (mínimo 6 caracteres).") else signUp(n,e,p,invite.text.toString().trim())
         },params())
     }
-    private fun signUp(name:String,email:String,password:String) {
-        busy("A criar conta...")
-        val data=JSONObject().put("full_name",name)
-        api("POST","/auth/v1/signup",JSONObject().put("email",email).put("password",password).put("data",data),false){v,e->
-            if(e!=null){authScreen();alert(e);return@api}
-            val obj=v as? JSONObject
-            if(obj==null||obj.optString("access_token").isBlank()){
-                authScreen();alert("Conta criada. Confirma o email recebido e depois entra na aplicação.")
-            }else saveSession(obj,"")
+    private fun signUp(name:String,email:String,password:String,invite:String) {
+        if(!password.contains(Regex("[a-z]")) || !password.contains(Regex("[A-Z]")) || !password.contains(Regex("[0-9]"))) {
+            alert("A palavra-passe deve conter pelo menos uma letra minúscula, uma maiúscula e um número.")
+            return
+        }
+        busy("A validar convite e a criar conta...")
+        api("POST","/rest/v1/rpc/wyzen_registration_allowed",JSONObject().put("p_code",invite),false){allowed,checkError->
+            if(checkError!=null || allowed.toString().trim().toBoolean()!=true) {
+                authScreen()
+                alert(if(checkError!=null) "Não foi possível validar o registo.\n$checkError" else "Depois da criação do administrador, só é possível criar contas com um convite válido.")
+                return@api
+            }
+            getSharedPreferences("wyzen_session",MODE_PRIVATE).edit().putString("pending_invite",invite).apply()
+            val data=JSONObject().put("full_name",name)
+            api("POST","/auth/v1/signup",JSONObject().put("email",email).put("password",password).put("data",data),false){v,e->
+                if(e!=null){authScreen();alert(e);return@api}
+                val obj=v as? JSONObject
+                if(obj==null||obj.optString("access_token").isBlank()){
+                    authScreen();alert("Conta criada. Confirma o email recebido e depois entra na aplicação. O convite ficou guardado neste dispositivo.")
+                }else saveSession(obj,invite)
+            }
         }
     }
     private fun signIn(email:String,password:String,invite:String) {
         busy("A validar a conta...")
         api("POST","/auth/v1/token?grant_type=password",JSONObject().put("email",email).put("password",password),false){v,e->
-            if(e!=null){authScreen();alert(e)}else saveSession(v as JSONObject,invite)
+            if(e!=null){authScreen();alert(e)}else saveSession(v as JSONObject,invite.ifBlank { getSharedPreferences("wyzen_session",MODE_PRIVATE).getString("pending_invite","") ?: "" })
         }
     }
     private fun saveSession(data:JSONObject,invite:String) {
@@ -120,7 +133,8 @@ class MainActivity : Activity() {
         uid=data.optJSONObject("user")?.optString("id","") ?: ""
         if(token.isBlank()||uid.isBlank()){authScreen();alert("O servidor não devolveu uma sessão válida.");return}
         getSharedPreferences("wyzen_session",MODE_PRIVATE).edit().putString("token",token).putString("uid",uid).apply()
-        if(invite.isNotBlank())redeem(invite) else membershipCheck()
+        val pending=invite.ifBlank { getSharedPreferences("wyzen_session",MODE_PRIVATE).getString("pending_invite","") ?: "" }
+        if(pending.isNotBlank())redeem(pending) else membershipCheck()
     }
     private fun membershipCheck() {
         busy("A verificar acesso...")
@@ -128,7 +142,10 @@ class MainActivity : Activity() {
             if(e!=null){busy("");alert("A migração SQL do WYZEN CHAT ainda precisa de ser aplicada no Supabase.\n\n"+e);return@api}
             val o=v as? JSONObject ?: JSONObject()
             admin=o.optBoolean("is_admin",false)
-            if(o.optBoolean("is_member",false))homeScreen() else inviteDialog()
+            if(o.optBoolean("is_member",false)){
+                getSharedPreferences("wyzen_session",MODE_PRIVATE).edit().remove("pending_invite").apply()
+                homeScreen()
+            } else inviteDialog()
         }
     }
     private fun inviteDialog() {
@@ -143,7 +160,7 @@ class MainActivity : Activity() {
         if(code.isBlank()){inviteDialog();return}
         api("POST","/rest/v1/rpc/wyzen_redeem_invite",JSONObject().put("p_code",code),true){_,e->
             if(e!=null){alert("Convite inválido/expirado ou limite de 50 membros atingido.\n"+e);inviteDialog()}
-            else{admin=false;homeScreen()}
+            else{admin=false;getSharedPreferences("wyzen_session",MODE_PRIVATE).edit().remove("pending_invite").apply();homeScreen()}
         }
     }
     private fun homeScreen() {
