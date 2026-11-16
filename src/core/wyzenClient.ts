@@ -1,41 +1,36 @@
 import { planCommand, CommandResult } from "./assistant";
-import { getWyzenAccessToken, supabase } from "./supabaseClient";
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL ?? "").replace(/\/$/, "");
 
 export type AssistantReply = {
   answer: string;
+  intent?: string;
+  engine?: string;
   actions?: Array<{ type: "open_url"; url: string; label: string }>;
 };
 
 export async function askWyzen(command: string): Promise<AssistantReply> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !supabase) {
+  if (!SERVER_URL) {
     const plan: CommandResult = planCommand(command);
     return {
       answer: [
         "O motor local recebeu a tua ordem.",
         ...plan.steps,
-        "Para ativar a inteligência remota, configura o Supabase e a autenticação indicada no README."
-      ].join("\n")
+        "Configura EXPO_PUBLIC_WYZEN_SERVER_URL para ligar ao teu servidor próprio."
+      ].join("\n"),
+      engine: "android-local-planner"
     };
   }
 
-  const accessToken = await getWyzenAccessToken();
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/wyzen-assistant`, {
+  const response = await fetch(`${SERVER_URL}/v1/chat`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${accessToken}`
-    },
-    body: JSON.stringify({ command })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: command, user_id: "android-user" })
   });
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`Motor remoto indisponível (${response.status}): ${message}`);
+    throw new Error(`Servidor WYZEN indisponível (${response.status}): ${message}`);
   }
-
   return response.json() as Promise<AssistantReply>;
 }
