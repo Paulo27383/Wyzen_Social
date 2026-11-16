@@ -79,7 +79,8 @@ class MainActivity : Activity() {
     private fun authScreen() {
         initRoot()
         root.gravity=Gravity.CENTER_VERTICAL
-        root.addView(text("W",34f,lime,true))\n        root.addView(text("P O D O L S K Y",9f,muted,true))
+        root.addView(text("W",34f,lime,true))
+        root.addView(text("P O D O L S K Y",9f,muted,true))
         root.addView(text("MENSAGENS PRIVADAS · MÁXIMO 50 MEMBROS",10f,muted,true))
         root.addView(gap(12))
         val fullName=input("Nome completo (para criar conta)")
@@ -268,7 +269,6 @@ class MainActivity : Activity() {
         if(admin)root.addView(button("GERAR CONVITE",true){makeInvite()},params())
         root.addView(gap(8))
         root.addView(button("TERMINAR SESSÃO"){logout()},params())
-        root.addView(View(this),LinearLayout.LayoutParams(-1,0,1f))
         bottomNav("profile")
     }
     private fun createConversation(group:Boolean) {
