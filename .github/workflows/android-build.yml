@@ -1,4 +1,4 @@
-name: Build WYZEN SOCIAL Android APK
+name: Build WYZEN CHAT Android APK
 
 on:
   workflow_dispatch:
@@ -37,6 +37,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: wyzen-social-debug-apk
+          name: wyzen-chat-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
