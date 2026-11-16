@@ -42,7 +42,7 @@ O reconhecimento de voz depende de uma build nativa; o Expo Go pode não incluir
 
 A função está em `supabase/functions/wyzen-assistant/index.ts`. Configura `OPENAI_API_KEY` como secret da função no Supabase e, opcionalmente, `OPENAI_MODEL`. Nunca coloques a chave da OpenAI no código Android ou no GitHub.
 
-**Importante:** a função está configurada para exigir JWT (`verify_jwt = true`). A aplicação ainda não implementa sessão Supabase de utilizador nem envia um access token JWT válido. Portanto, a chamada remota ainda não está pronta. Não desatives a verificação JWT para contornar este problema; a autenticação deve ser implementada primeiro.
+**Autenticação:** a aplicação agora usa o cliente Supabase com sessão persistente e início de sessão anónima. No painel Supabase, abre Authentication → Sign In / Providers (ou configuração de Auth) e ativa **Allow anonymous sign-ins**. Mantém `verify_jwt = true`: a aplicação envia o access token da sessão, não a chave pública como se fosse um JWT. A chamada remota também exige o secret `OPENAI_API_KEY` na função.
 
 ## Compilar Android com EAS
 
