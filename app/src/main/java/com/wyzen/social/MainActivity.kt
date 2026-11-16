@@ -236,7 +236,7 @@ class MainActivity : Activity() {
         root.addView(gap(16));root.addView(text("ACTUALIZAÇÕES RECENTES",11f,lime,true))
         val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
         scroll.addView(list);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        api("GET","/rest/v1/wyzen_statuses?select=id,user_id,content,created_at&expires_at=gt.now()&order=created_at.desc&limit=100",null,true){v,e->
+        api("GET","/rest/v1/wyzen_statuses?select=id,user_id,content,created_at&expires_at=gt."+java.time.Instant.now().toString()+"&order=created_at.desc&limit=100",null,true){v,e->
             if(e!=null){showFriendlyError(e);return@api}
             val rows=v as? JSONArray?:JSONArray()
             if(rows.length()==0)list.addView(text("Ainda não há estados publicados.",13f,muted))
