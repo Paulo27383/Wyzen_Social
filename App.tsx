@@ -1,28 +1,67 @@
 import React, { useState } from "react";
 import {
-  ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View
+  Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput,
+  TouchableOpacity, View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
-import { planCommand, CommandResult } from "./src/core/assistant";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent
+} from "expo-speech-recognition";
+import { askWyzen } from "./src/core/wyzenClient";
 
 export default function App() {
   const [command, setCommand] = useState("");
-  const [result, setResult] = useState<CommandResult | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
 
-  const run = () => {
-    const plan = planCommand(command);
-    setResult(plan);
+  useSpeechRecognitionEvent("result", event => {
+    const transcript = event.results?.[0]?.transcript;
+    if (transcript) setCommand(transcript);
+  });
+  useSpeechRecognitionEvent("end", () => setListening(false));
+  useSpeechRecognitionEvent("error", event => {
+    setListening(false);
+    Alert.alert("Reconhecimento de voz", event.message || "Não foi possível reconhecer a voz.");
+  });
+
+  const startVoice = async () => {
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permissão necessária", "Autoriza o acesso ao microfone para ditar comandos.");
+        return;
+      }
+      setListening(true);
+      ExpoSpeechRecognitionModule.start({
+        lang: "pt-PT",
+        interimResults: true,
+        continuous: false
+      });
+    } catch {
+      setListening(false);
+      Alert.alert("Voz indisponível", "A voz requer uma compilação Android nativa com o módulo instalado.");
+    }
+  };
+
+  const run = async () => {
+    if (!command.trim() || busy) return;
+    setBusy(true);
+    setAnswer("");
+    try {
+      const reply = await askWyzen(command.trim());
+      setAnswer(reply.answer);
+    } catch (error) {
+      setAnswer(error instanceof Error ? error.message : "Erro ao contactar o motor WYZEN.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const speak = () => {
-    if (!result) return;
-    Speech.speak(
-      [result.title, ...result.steps].join(". "),
-      { language: "pt-PT", rate: 0.95 }
-    );
+    if (answer) Speech.speak(answer, { language: "pt-PT", rate: 0.95 });
   };
 
   return (
@@ -35,58 +74,48 @@ export default function App() {
             <Text style={styles.brand}>WYZEN AI</Text>
             <Text style={styles.subtitle}>ASSISTENTE PESSOAL INTELIGENTE</Text>
           </View>
-          <View style={styles.status}><View style={styles.dot}/><Text style={styles.statusText}>PRONTA</Text></View>
+          <View style={styles.status}><View style={styles.dot}/><Text style={styles.statusText}>ONLINE LOCAL</Text></View>
         </View>
 
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>O TEU MOTOR DE EXECUÇÃO</Text>
-          <Text style={styles.heading}>Dá uma ordem.{ "\n" }Vamos tratar do resto.</Text>
-          <Text style={styles.description}>Voz, texto e planeamento inteligente num único assistente.</Text>
+          <Text style={styles.heading}>Dá uma ordem.\nA WYZEN planeia.</Text>
+          <Text style={styles.description}>Um assistente Android para voz, texto, inteligência e ferramentas autorizadas.</Text>
           <View style={styles.orb}><Text style={styles.orbText}>✦</Text></View>
         </View>
 
         <Text style={styles.section}>COMANDO</Text>
         <View style={styles.composer}>
-          <TextInput
-            value={command}
-            onChangeText={setCommand}
-            placeholder="Ex.: organiza as minhas tarefas de hoje..."
-            placeholderTextColor="#77819A"
-            multiline
-            style={styles.input}
-          />
+          <TextInput value={command} onChangeText={setCommand}
+            placeholder="Ex.: ajuda-me a organizar o meu dia..."
+            placeholderTextColor="#77819A" multiline style={styles.input}/>
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.voiceButton} onPress={() => setListening(!listening)}>
-              <Text style={styles.voiceText}>{listening ? "A voz requer configuração" : "🎙  VOZ"}</Text>
+            <TouchableOpacity style={styles.voiceButton} onPress={startVoice}>
+              <Text style={styles.voiceText}>{listening ? "A ouvir..." : "🎙  DITAR"}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.runButton} onPress={run}>
-              <Text style={styles.runText}>Preparar ordem  →</Text>
+            <TouchableOpacity style={styles.runButton} onPress={run} disabled={busy}>
+              <Text style={styles.runText}>{busy ? "A pensar..." : "Executar ordem  →"}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {result && <View style={styles.result}>
-          <Text style={styles.resultTitle}>{result.title}</Text>
-          {result.steps.map((step, index) => (
-            <View key={index} style={styles.step}>
-              <Text style={styles.stepNumber}>{String(index + 1).padStart(2, "0")}</Text>
-              <Text style={styles.stepText}>{step}</Text>
-            </View>
-          ))}
-          {result.requiresConfirmation && <Text style={styles.warning}>Confirmação necessária para ações sensíveis.</Text>}
-          <TouchableOpacity onPress={speak} style={styles.speakButton}><Text style={styles.speakText}>🔊 Ouvir plano</Text></TouchableOpacity>
-          <Text style={styles.note}>Motor de IA e execução externa ainda precisam de configuração e ligação a serviços.</Text>
+        {!!answer && <View style={styles.result}>
+          <Text style={styles.resultTitle}>Resposta WYZEN</Text>
+          <Text style={styles.answer}>{answer}</Text>
+          <TouchableOpacity onPress={speak} style={styles.speakButton}>
+            <Text style={styles.speakText}>🔊 Ouvir resposta</Text>
+          </TouchableOpacity>
         </View>}
 
-        <Text style={styles.section}>MÓDULOS</Text>
+        <Text style={styles.section}>MÓDULOS DO ASSISTENTE</Text>
         <View style={styles.grid}>
           {[
-            ["✦", "Inteligência", "Planeamento e memória"],
-            ["⌘", "Automação", "Fluxos e tarefas"],
-            ["◉", "Voz", "Comandos falados"],
-            ["▤", "Ficheiros", "Documentos e código"],
-            ["◎", "Pesquisa", "Informação online"],
-            ["⬡", "Segurança", "Permissões e registos"]
+            ["✦", "Inteligência", "Modelo IA no backend"],
+            ["⌘", "Automação", "Motor de tarefas"],
+            ["◉", "Voz", "Ditado e leitura"],
+            ["▤", "Ficheiros", "Integração em preparação"],
+            ["◎", "Pesquisa", "Ferramentas em preparação"],
+            ["⬡", "Segurança", "Permissões e histórico"]
           ].map(([icon, title, detail]) => (
             <View key={title} style={styles.module}>
               <Text style={styles.moduleIcon}>{icon}</Text>
@@ -95,7 +124,7 @@ export default function App() {
             </View>
           ))}
         </View>
-        <Text style={styles.footer}>WYZEN AI • VERSÃO 0.1.0 • CONTROLO SOB A TUA AUTORIZAÇÃO</Text>
+        <Text style={styles.footer}>WYZEN AI • ANDROID • AUTONOMIA AVANÇADA COM CONTROLO</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -128,13 +157,9 @@ const styles = StyleSheet.create({
   runText: { color: "white", fontWeight: "800", fontSize: 12 },
   result: { backgroundColor: "#101A2D", borderRadius: 17, padding: 16, marginBottom: 25, borderWidth: 1, borderColor: "#33446A" },
   resultTitle: { color: "white", fontSize: 17, fontWeight: "800", marginBottom: 13 },
-  step: { flexDirection: "row", gap: 11, marginBottom: 12 },
-  stepNumber: { color: "#8292FF", fontSize: 11, fontWeight: "900" },
-  stepText: { color: "#C5CEE1", fontSize: 12, lineHeight: 18, flex: 1 },
-  warning: { color: "#F2C879", fontSize: 11, marginVertical: 8 },
-  speakButton: { backgroundColor: "#202F55", padding: 12, borderRadius: 10, alignItems: "center", marginTop: 8 },
+  answer: { color: "#C5CEE1", fontSize: 13, lineHeight: 20 },
+  speakButton: { backgroundColor: "#202F55", padding: 12, borderRadius: 10, alignItems: "center", marginTop: 14 },
   speakText: { color: "white", fontWeight: "700", fontSize: 12 },
-  note: { color: "#8490AA", fontSize: 10, lineHeight: 15, marginTop: 12 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   module: { width: "48%", minHeight: 105, backgroundColor: "#11192B", borderRadius: 15, padding: 14, borderWidth: 1, borderColor: "#202C43" },
   moduleIcon: { color: "#93A0FF", fontSize: 20, marginBottom: 8 },
