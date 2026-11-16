@@ -65,6 +65,13 @@ export default function App() {
     const transcript = event.results?.[0]?.transcript?.trim();
     if (!transcript) return;
     if (enrollingVoice) {
+      const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+      if (!normalized.includes("minha voz") || !normalized.includes("minha chave")) {
+        setStatus("Frase não reconhecida. Tenta novamente.");
+        setEnrollingVoice(false);
+        setListening(false);
+        return;
+      }
       const owner: Profile = { name: name.trim() };
       SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(owner)).then(() =>
         SecureStore.setItemAsync(SESSION_KEY, "active")
