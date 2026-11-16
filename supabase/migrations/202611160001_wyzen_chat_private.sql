@@ -31,11 +31,11 @@ alter table public.conversations add column if not exists is_group boolean not n
 
 create or replace function public.wyzen_is_member(p_user uuid default auth.uid())
 returns boolean language sql stable security definer set search_path=public
-as $ select exists(select 1 from public.wyzen_members where user_id=p_user and active); $;
+as $$ select exists(select 1 from public.wyzen_members where user_id=p_user and active); $$;
 
 create or replace function public.wyzen_is_conversation_member(p_conversation uuid, p_user uuid default auth.uid())
 returns boolean language sql stable security definer set search_path=public
-as $ select exists(select 1 from public.conversation_members where conversation_id=p_conversation and user_id=p_user); $;
+as $$ select exists(select 1 from public.conversation_members where conversation_id=p_conversation and user_id=p_user); $$;
 
 create or replace function public.wyzen_bootstrap_admin()
 returns jsonb language plpgsql security definer set search_path=public
