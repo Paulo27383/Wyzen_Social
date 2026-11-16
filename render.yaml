@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: wyzen-ai-server
+    runtime: docker
+    plan: free
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: WYZEN_ADMIN_TOKEN
+        sync: false
