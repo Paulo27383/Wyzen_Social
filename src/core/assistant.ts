@@ -1,8 +1,12 @@
+export type LocalIntent =
+  | "greeting" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
+
 export type CommandResult = {
   title: string;
   steps: string[];
   requiresConfirmation: boolean;
   status: "planned" | "needs_setup";
+  intent?: LocalIntent;
 };
 
 const sensitiveTerms = [
@@ -10,32 +14,53 @@ const sensitiveTerms = [
   "publicar", "partilhar", "instalar", "desinstalar"
 ];
 
+export function classifyLocalIntent(raw: string): LocalIntent {
+  const value = raw.trim().toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/^(ola|olá|oi|bom dia|boa tarde|boa noite|hey)\b/.test(value)) return "greeting";
+  if (/\b(que horas|horas sao|hora atual|diz as horas)\b/.test(value)) return "time";
+  if (/\b(que dia|data de hoje|dia de hoje|hoje e que dia)\b/.test(value)) return "date";
+  if (/^(ajuda|o que sabes fazer|comandos disponiveis|funcoes locais)\b/.test(value)) return "help";
+  if (/\b(planear|planejar|organizar|agenda|tarefas|plano|lembrete)\b/.test(value)) return "planning";
+  if (/\b(aprender|ensinar|explicar|estudar|treinar)\b/.test(value)) return "learning";
+  return "unknown";
+}
+
 export function planCommand(raw: string): CommandResult {
   const command = raw.trim();
-  const normalized = command.toLocaleLowerCase("pt");
+  const normalized = command.toLocaleLowerCase("pt-PT");
   const sensitive = sensitiveTerms.some(term => normalized.includes(term));
+  const intent = classifyLocalIntent(command);
 
   if (!command) {
-    return {
-      title: "Escreve ou dita uma ordem",
-      steps: ["Aguardando o teu comando."],
-      requiresConfirmation: false,
-      status: "planned"
-    };
+    return { title: "Aguardando comando", steps: ["Diz ou escreve o que precisas."], requiresConfirmation: false, status: "planned", intent };
+  }
+
+  if (intent === "greeting") {
+    return { title: "Saudação", steps: ["Olá! Sou a WYZEN, a tua assistente pessoal.", "Posso ajudar com comandos locais, organização e planeamento."], requiresConfirmation: false, status: "planned", intent };
+  }
+  if (intent === "time") {
+    return { title: "Hora atual", steps: [new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(new Date())], requiresConfirmation: false, status: "planned", intent };
+  }
+  if (intent === "date") {
+    return { title: "Data de hoje", steps: [new Intl.DateTimeFormat("pt-PT", { dateStyle: "full" }).format(new Date())], requiresConfirmation: false, status: "planned", intent };
+  }
+  if (intent === "help") {
+    return { title: "Funções locais", steps: ["Consultar contactos: “procura contacto + nome”.", "Preparar chamada: “liga para + número”.", "Preparar SMS: “sms para + número: mensagem”.", "Criar lembrete: “lembra-me de + tarefa às HH:MM”.", "Abrir aplicações: “abre WhatsApp”, “abre Maps” ou “abre Gmail”.", "Gerir permissões: “autoriza microfone”, “autoriza contactos”, “autoriza calendário”."], requiresConfirmation: false, status: "planned", intent };
   }
 
   return {
-    title: "Plano preparado",
+    title: intent === "unknown" ? "Ainda estou a aprender" : "Plano preparado",
     steps: [
       `Comando recebido: “${command}”`,
-      "Interpretar o objetivo e dividir em etapas.",
-      "Verificar ferramentas e permissões disponíveis.",
+      "Identificar o objetivo e dividir o pedido em etapas.",
+      "Verificar ferramentas locais e permissões disponíveis.",
       sensitive
-        ? "Solicitar confirmação explícita antes de qualquer ação sensível."
-        : "Executar apenas ações locais e autorizadas quando o motor estiver ligado.",
-      "Apresentar o resultado e registar a atividade."
+        ? "Pedir confirmação explícita antes de qualquer ação sensível."
+        : "Não executar ações que ainda não estejam implementadas.",
+      "Quando a ligação estiver disponível, enviar pedidos complexos ao servidor WYZEN."
     ],
     requiresConfirmation: sensitive,
-    status: "needs_setup"
+    status: "needs_setup",
+    intent
   };
 }
