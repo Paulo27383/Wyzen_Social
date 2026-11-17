@@ -79,7 +79,7 @@ O Centro de Controlo inicial está disponível por comandos de voz ou texto:
 
 A abertura de uma aplicação não equivale a acesso à conta nem permite ler ou alterar o seu conteúdo. Para operações dentro de WhatsApp, Meta, TikTok e Google são necessários os respetivos fluxos oficiais de OAuth/API, com permissões e aprovações aplicáveis.
 
-A voz contínua pode ser ativada com `ativa voz contínua` e desligada com `desativa voz contínua`. Nesta fase, a escuta contínua funciona apenas enquanto a WYZEN está aberta e em primeiro plano. Ao passar para segundo plano, a escuta é parada de propósito. Palavra de despertar permanente e operação em segundo plano exigem um serviço nativo Android em primeiro plano, notificação persistente, controlos de privacidade e testes de bateria; ainda não estão implementados. A frase inicial de configuração continua a ser verificação de texto reconhecido, não biometria vocal.
+A voz contínua pode ser ativada com `ativa voz contínua` e desligada com `desativa voz contínua`. Nesta fase, a escuta contínua funciona apenas enquanto a WYZEN está aberta e em primeiro plano. Ao passar para segundo plano, a escuta é parada de propósito. Palavra de despertar permanente e operação em segundo plano exigem um serviço nativo Android em primeiro plano, notificação persistente, controlos de privacidade e testes de bateria; ainda não estão implementados. A arquitetura técnica escolhida para a implementação com sherpa-onnx está documentada em [docs/ANDROID_WAKE_WORD_ARCHITECTURE.md](docs/ANDROID_WAKE_WORD_ARCHITECTURE.md). A frase inicial de configuração continua a ser verificação de texto reconhecido, não biometria vocal.
 
 ## Limites de integração
 
