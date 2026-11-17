@@ -11,7 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
-import { rememberWyzen, recallWyzen, forgetWyzen } from "./src/core/memory";
+import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
@@ -194,6 +194,12 @@ export default function App() {
       }
       return;
     }
+    if (/^(resumo de hoje|resume o meu dia|o que fizemos hoje)$/i.test(value.trim())) {
+      const history = await dailyInteractions();
+      const result = history.length ? "Resumo do dia: " + history.length + " interações guardadas.\\n" + history.slice(0, 10).map((item, index) => (index + 1) + ". " + item.userText + " — " + item.assistantText.slice(0, 180)).join("\\n") : "Ainda não há interações guardadas hoje.";
+      setAnswer(result); setStatus("Resumo diário"); Speech.speak(result, { language: "pt-PT" });
+      return;
+    }
     const memoryQuestion = value.trim().match(/^(?:o que sabes sobre|o que te lembras sobre|procura na memória|consulta a memória sobre)\s+(.+)$/i);
     if (memoryQuestion) {
       const items = await recallWyzen(memoryQuestion[1]);
@@ -290,7 +296,9 @@ export default function App() {
       }
       const reply = await askWyzen(value.trim());
       setAnswer(reply.answer);
-      setStatus("Concluído");
+      const kind = /conselho|aconselha|o que devo fazer|que sugeres/i.test(value) ? "advice" : /resume|resumo|sintetiza/i.test(value) ? "summary" : "conversation";
+      await recordInteraction(value, reply.answer, kind);
+      setStatus("Concluído — interação guardada");
       if (reply.answer) Speech.speak(reply.answer, { language: "pt-PT", rate: 0.95 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro no motor WYZEN.";
@@ -353,6 +361,7 @@ export default function App() {
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
               <Text onPress={startVoice} style={styles.w}>W</Text>
             </Animated.View>
+            <Text style={styles.creator}>Podolsky</Text>
             <Text style={styles.status}>{status}</Text>
             {phase === "enroll" && (
               <View style={styles.enroll}>
@@ -390,6 +399,7 @@ const styles = StyleSheet.create({
   wordmark: { color: "#8C9BFF", fontSize: 11, fontWeight: "800", letterSpacing: 7 },
   center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%" },
   w: { color: "#F4F6FF", fontSize: 142, fontWeight: "200", letterSpacing: -13, textShadowColor: "#536BFF", textShadowRadius: 34, textShadowOffset: { width: 0, height: 0 } },
+  creator: { color: "#8C9BFF", fontSize: 12, fontWeight: "700", letterSpacing: 3, marginTop: -8 },
   status: { color: "#929CB7", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
   enroll: { width: "100%", marginTop: 38, alignItems: "center" },
   title: { color: "#F4F6FF", fontSize: 19, fontWeight: "600" },
