@@ -11,7 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
-import { normalizeNaturalCommand } from "./src/core/assistant";
+import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
@@ -143,6 +143,14 @@ export default function App() {
 
   const runCommand = async (rawValue: string) => {
     if (!rawValue.trim() || busy) return;
+    const compoundPlan = planCompoundCommand(rawValue);
+    if (compoundPlan.isCompound) {
+      const message = compoundPlan.clarification || "Dividi o pedido em etapas, mas preciso de mais informação.";
+      setAnswer(message);
+      setStatus(compoundPlan.supported ? "Plano preparado — aguarda confirmação" : "Preciso de esclarecimento");
+      speakWyzen(message, { language: "pt-PT" });
+      return;
+    }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
     if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
