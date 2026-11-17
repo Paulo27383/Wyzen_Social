@@ -72,3 +72,34 @@ export function planCommand(raw: string): CommandResult {
     intent
   };
 }
+
+
+/**
+ * Converts clear natural-language variants into the existing, tested command
+ * phrases. Ambiguous requests are deliberately left untouched for conversation.
+ */
+export function normalizeNaturalCommand(raw: string): string {
+  const value = raw.trim().replace(/\\s+/g, " ");
+  const lower = value.toLocaleLowerCase("pt-PT");
+
+  let match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta) (?:uma )?tarefa(?: para| de| chamada)?\\s+(.+)$/i);
+  if (match) return "cria tarefa " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:marca|assinala) (?:a )?tarefa (.+?) como (?:concluída|concluida|feita|terminada)$/i);
+  if (match) return "conclui tarefa " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:mostra|lista|quais são|quais sao) (?:as )?(?:minhas )?tarefas$/i);
+  if (match) return "lista tarefas";
+
+  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) que?\\s+(.+)$/i);
+  if (match) return "guarda na memória " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:o que sabes|o que te lembras) sobre (.+)$/i);
+  if (match) return "o que sabes sobre " + match[1].trim();
+
+  match = value.match(/^(?:wyzen[, ]+)?(?:abre|abres|inicia|inicias) (?:a |o )?(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i);
+  if (match) return "abre " + match[1];
+
+  match = value.match(/^(?:wyzen[, ]+)?(?:procura|encontra|pesquisa) (?:o contacto|a pessoa|contacto chamado|contacto) (.+)$/i);
+  if (match) return "procura contacto " + match[1].trim();
+
+  // Keep conversational, uncertain or unsupported requests unchanged.
+  return value;
+}
