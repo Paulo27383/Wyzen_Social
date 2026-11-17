@@ -47,25 +47,25 @@ def db():
 
 
 def normalize(text: str) -> str:
-    return re.sub(r"\\s+", " ", text.casefold()).strip()
+    return re.sub(r"\s+", " ", text.casefold()).strip()
 
 
 def classify(text: str) -> str:
     value = normalize(text)
     patterns = {
-        "greeting": r"\\b(olá|ola|bom dia|boa tarde|boa noite|oi|hey)\\b",
-        "thanks": r"\\b(obrigad[oa]s?|agradeço|valeu)\\b",
-        "farewell": r"\\b(adeus|até logo|ate logo|até amanhã|ate amanha|tchau|vou dormir)\\b",
-        "identity": r"\\b(quem és|quem e voce|quem és tu|o que és|o que e voce|fala de ti)\\b",
-        "creator": r"\\b(quem te criou|quem criou você|quem criou voce|teu criador)\\b",
-        "capabilities": r"\\b(o que sabes fazer|no que podes ajudar|quais são as tuas funções|capacidades)\\b",
-        "time": r"\\b(que horas|horas são|hora atual)\\b",
-        "planning": r"\\b(planear|planejar|organizar|agenda|plano|prioridades)\\b",
-        "learning": r"\\b(aprender|ensinar|explicar|estudar|treinar)\\b",
-        "search": r"\\b(pesquisar|procurar|buscar|pesquisa)\\b",
-        "translation": r"\\b(traduz|traduzir|tradução)\\b",
-        "opinion": r"\\b(o que achas|qual é a tua opinião|o que pensas|na tua opinião)\\b",
-        "clarification": r"\\b(não percebi|nao percebi|explica melhor|como assim|não entendi|nao entendi)\\b",
+        "greeting": r"\b(olá|ola|bom dia|boa tarde|boa noite|oi|hey)\b",
+        "thanks": r"\b(obrigad[oa]s?|agradeço|valeu)\b",
+        "farewell": r"\b(adeus|até logo|ate logo|até amanhã|ate amanha|tchau|vou dormir)\b",
+        "identity": r"\b(quem és|quem e voce|quem és tu|o que és|o que e voce|fala de ti)\b",
+        "creator": r"\b(quem te criou|quem criou você|quem criou voce|teu criador)\b",
+        "capabilities": r"\b(o que sabes fazer|no que podes ajudar|quais são as tuas funções|capacidades)\b",
+        "time": r"\b(que horas|horas são|hora atual)\b",
+        "planning": r"\b(planear|planejar|organizar|agenda|plano|prioridades)\b",
+        "learning": r"\b(aprender|ensinar|explicar|estudar|treinar)\b",
+        "search": r"\b(pesquisar|procurar|buscar|pesquisa)\b",
+        "translation": r"\b(traduz|traduzir|tradução)\b",
+        "opinion": r"\b(o que achas|qual é a tua opinião|o que pensas|na tua opinião)\b",
+        "clarification": r"\b(não percebi|nao percebi|explica melhor|como assim|não entendi|nao entendi)\b",
     }
     for intent, pattern in patterns.items():
         if re.search(pattern, value):
