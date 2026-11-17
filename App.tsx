@@ -11,7 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
-import { downloadLocalModel, getLocalModelStatus } from "./src/core/localModel";
+import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
@@ -383,10 +383,17 @@ export default function App() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => {
-      if (state !== "active" && continuousEnabled) {
-        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
-        setListening(false);
-        setStatus("Voz pausada pelo Android em segundo plano");
+      if (state !== "active") {
+        if (continuousEnabled) {
+          try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
+          setListening(false);
+          setStatus("Voz pausada pelo Android em segundo plano");
+        }
+        // Release native model memory when the app is backgrounded.
+        // If a reply is being generated, localModel defers release until it finishes.
+        void unloadLocalModel().catch(() => {
+          // The next request can retry loading the model if release fails.
+        });
       }
     });
     return () => subscription.remove();
