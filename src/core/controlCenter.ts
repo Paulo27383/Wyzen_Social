@@ -1,4 +1,4 @@
-import { Alert, Linking, Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import * as Contacts from "expo-contacts";
 import * as Calendar from "expo-calendar";
 import * as Notifications from "expo-notifications";
