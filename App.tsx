@@ -162,6 +162,30 @@ export default function App() {
         });
         return;
       }
+      const namedCall = value.trim().match(/^(?:liga|telefonar|chama)\s+para\s+([\p{L}][\p{L} .'-]{1,60})$/iu);
+      const namedSms = value.trim().match(/^(?:sms|mensagem)\s+para\s+([\p{L}][\p{L} .'-]{1,60})\s*[:;,]\s*(.+)$/iu);
+      if (namedCall || namedSms) {
+        const phone = await findContact((namedCall || namedSms)![1].trim());
+        const action = namedCall
+          ? { type: "call" as const, phone }
+          : { type: "sms" as const, phone, message: namedSms![2].trim() };
+        setBusy(false);
+        confirmPhoneAction(action, async () => {
+          setBusy(true);
+          setStatus("A preparar ação para o contacto");
+          try {
+            const result = await performPhoneAction(action);
+            setAnswer(result);
+            setStatus("Concluído");
+            Speech.speak(result, { language: "pt-PT" });
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
+            setAnswer(message);
+            setStatus("Ação não concluída");
+          } finally { setBusy(false); }
+        });
+        return;
+      }
       const contactMatch = value.trim().match(/^(?:procura|encontra|pesquisa) contacto (.+)$/i);
       if (contactMatch) {
         const phone = await findContact(contactMatch[1]);
