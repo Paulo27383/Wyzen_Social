@@ -25,7 +25,7 @@ const APP_LABELS: Record<string, string> = {
 };
 
 export async function openAuthorizedApp(alias: string): Promise<string> {
-  const key = alias.toLocaleLowerCase("pt-PT").replace(/\\s+/g, "");
+  const key = alias.toLocaleLowerCase("pt-PT").replace(/\s+/g, "");
   const candidates = APP_LINKS[key];
   if (!candidates) throw new Error("Essa aplicação ainda não está registada no Centro de Controlo.");
   for (const url of candidates) {
@@ -74,7 +74,7 @@ export function controlCenterHelp(): string {
     "Sistema: abrir definições da WYZEN.",
     "Privacidade: cada permissão é pedida ao Android quando necessária; a WYZEN não contorna bloqueios do sistema.",
     "Limite atual: abrir aplicações e pedir permissões está disponível; controlar conteúdo interno de contas exige APIs oficiais e OAuth."
-  ].join("\\n");
+  ].join("\n");
 }
 
 export async function runControlCommand(input: string): Promise<ControlResult> {
@@ -82,12 +82,12 @@ export async function runControlCommand(input: string): Promise<ControlResult> {
   if (/^(?:centro de controlo|centro de controle|ajuda do centro de controlo)$/i.test(text)) {
     return { handled: true, message: controlCenterHelp() };
   }
-  const open = text.match(/^(?:abre|abrir|inicia|iniciar)\\s+(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|maps|google maps|google)$/i);
+  const open = text.match(/^(?:abre|abrir|inicia|iniciar)\s+(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|maps|google maps|google)$/i);
   if (open) {
     const alias = open[1].toLocaleLowerCase("pt-PT").replace(/^google drive$/, "drive").replace(/^google calendar$/, "calendar").replace(/^calendário$/, "calendar").replace(/^google maps$/, "maps");
     return { handled: true, message: await openAuthorizedApp(alias) };
   }
-  const permission = text.match(/^(?:autoriza|permitir|ativa permissão de)\\s+(microfone|contactos|calendário|calendario|notificações|notificacoes|definições|definicoes|sistema)$/i);
+  const permission = text.match(/^(?:autoriza|permitir|ativa permissão de)\s+(microfone|contactos|calendário|calendario|notificações|notificacoes|definições|definicoes|sistema)$/i);
   if (permission) return { handled: true, message: await requestControlPermission(permission[1]) };
   return { handled: false };
 }
