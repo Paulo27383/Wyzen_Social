@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080512"/><stop offset=".55" stop-color="#10072a"/><stop offset="1" stop-color="#030208"/></linearGradient>
+ <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4d9ff"/><stop offset=".25" stop-color="#b45cff"/><stop offset=".62" stop-color="#7624f4"/><stop offset="1" stop-color="#e18aff"/></linearGradient>
+ <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1024" height="1024" rx="190" fill="url(#bg)"/>
+<rect x="10" y="10" width="1004" height="1004" rx="180" fill="none" stroke="#9a22ff" stroke-width="12" opacity=".9" filter="url(#glow)"/>
+<circle cx="512" cy="445" r="355" fill="none" stroke="#5b1acb" stroke-width="3" opacity=".35"/>
+<path d="M190 310 L350 650 L510 370 L675 650 L840 310" fill="none" stroke="url(#violet)" stroke-width="100" stroke-linecap="square" stroke-linejoin="bevel" filter="url(#glow)"/>
+<path d="M150 600 C285 805 720 555 866 270 C925 155 800 145 680 210" fill="none" stroke="url(#violet)" stroke-width="26" stroke-linecap="round" filter="url(#glow)"/>
+<text x="512" y="825" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="800" letter-spacing="16" fill="#f6edff">WYZEN</text>
+<path d="M230 880 H440 M584 880 H794" stroke="#9c37ff" stroke-width="8" stroke-linecap="round"/>
+<path d="M512 858 L534 880 L512 902 L490 880 Z" fill="#b13cff" filter="url(#glow)"/>
+</svg>
