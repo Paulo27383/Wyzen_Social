@@ -83,7 +83,7 @@ export async function performPhoneAction(action: PendingPhoneAction): Promise<st
 
 export function confirmPhoneAction(action: PendingPhoneAction, onConfirm: () => void) {
   const description = action.type === "call"
-    ? "Abrir o marcador para " + action.phone + "?"
+    ? "Iniciar uma chamada para " + action.phone + "? O Android poderá apresentar os controlos da chamada."
     : action.type === "sms"
       ? "Preparar SMS para " + action.phone + ": " + action.message
       : "Criar o lembrete “" + action.title + "” para " + action.date.toLocaleString("pt-PT") + "?";
