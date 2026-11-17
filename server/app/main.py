@@ -16,7 +16,7 @@ DB_PATH = DATA_DIR / "wyzen.db"
 MODEL_PATH = DATA_DIR / "intent_model.joblib"
 ADMIN_TOKEN = os.getenv("WYZEN_ADMIN_TOKEN", "")
 
-app = FastAPI(title="WYZEN Own Intelligence Server", version="0.1.0")
+app = FastAPI(title="WYZEN Conversational Intelligence", version="0.2.0")
 
 
 class ChatInput(BaseModel):
@@ -46,60 +46,117 @@ def db():
     return connection
 
 
-def classify(text: str) -> str:
-    if MODEL_PATH.exists():
-        try:
-            import joblib
-            model = joblib.load(MODEL_PATH)
-            return str(model.predict([text])[0])
-        except Exception:
-            pass
+def normalize(text: str) -> str:
+    return re.sub(r"\\s+", " ", text.casefold()).strip()
 
-    value = text.casefold()
+
+def classify(text: str) -> str:
+    value = normalize(text)
     patterns = {
-        "greeting": r"\b(olá|ola|bom dia|boa tarde|boa noite|oi|hey)\b",
-        "time": r"\b(horas|que horas|hora atual)\b",
-        "planning": r"\b(planear|planejar|organizar|agenda|tarefas|plano)\b",
-        "learning": r"\b(aprender|ensinar|explicar|estudar|treinar)\b",
-        "search": r"\b(pesquisar|procurar|buscar|pesquisa)\b",
-        "translation": r"\b(traduz|traduzir|tradução)\b"
+        "greeting": r"\\b(olá|ola|bom dia|boa tarde|boa noite|oi|hey)\\b",
+        "thanks": r"\\b(obrigad[oa]s?|agradeço|valeu)\\b",
+        "farewell": r"\\b(adeus|até logo|ate logo|até amanhã|ate amanha|tchau|vou dormir)\\b",
+        "identity": r"\\b(quem és|quem e voce|quem és tu|o que és|o que e voce|fala de ti)\\b",
+        "creator": r"\\b(quem te criou|quem criou você|quem criou voce|teu criador)\\b",
+        "capabilities": r"\\b(o que sabes fazer|no que podes ajudar|quais são as tuas funções|capacidades)\\b",
+        "time": r"\\b(que horas|horas são|hora atual)\\b",
+        "planning": r"\\b(planear|planejar|organizar|agenda|plano|prioridades)\\b",
+        "learning": r"\\b(aprender|ensinar|explicar|estudar|treinar)\\b",
+        "search": r"\\b(pesquisar|procurar|buscar|pesquisa)\\b",
+        "translation": r"\\b(traduz|traduzir|tradução)\\b",
+        "opinion": r"\\b(o que achas|qual é a tua opinião|o que pensas|na tua opinião)\\b",
+        "clarification": r"\\b(não percebi|nao percebi|explica melhor|como assim|não entendi|nao entendi)\\b",
     }
     for intent, pattern in patterns.items():
         if re.search(pattern, value):
             return intent
-    return "unknown"
+
+    # A trained classifier may add new intents, but never overrides clear dialogue rules.
+    if MODEL_PATH.exists():
+        try:
+            import joblib
+            model = joblib.load(MODEL_PATH)
+            prediction = str(model.predict([text])[0])
+            if prediction not in {"unknown", "greeting", "thanks", "farewell", "identity", "creator"}:
+                return prediction
+        except Exception:
+            pass
+    return "followup" if len(value.split()) <= 5 else "unknown"
 
 
-def answer_for(intent: str, message: str) -> str:
-    answers = {
-        "greeting": "Olá! Sou a WYZEN. Estou a iniciar a minha aprendizagem. Em que posso ajudar?",
-        "time": "Ainda não tenho acesso ao relógio do dispositivo. Essa será uma das ferramentas a integrar.",
-        "planning": "Vamos organizar isso. Diz-me o objetivo, o prazo e as tarefas que já conheces.",
-        "learning": "Posso guardar exemplos e conhecimentos que me ensines. Ainda estou numa fase inicial de aprendizagem.",
-        "search": "A pesquisa na Internet ainda não está ligada. Posso preparar essa ferramenta na próxima etapa.",
-        "translation": "Indica o texto e os idiomas de origem e destino. O meu motor linguístico ainda está em desenvolvimento.",
-        "unknown": "Ainda não compreendi totalmente. Podes reformular ou ensinar-me o que esta frase deve significar?"
-    }
-    return answers.get(intent, answers["unknown"])
+def recent_context(connection, user_id: str):
+    rows = connection.execute(
+        "SELECT message, answer FROM memories WHERE user_id=? ORDER BY id DESC LIMIT 6",
+        (user_id,)
+    ).fetchall()
+    return list(reversed(rows))
+
+
+def answer_for(intent: str, message: str, context) -> str:
+    last_user = context[-1][0] if context else ""
+    value = normalize(message)
+
+    if intent == "greeting":
+        return "Olá! Estou aqui. Podemos conversar normalmente ou trabalhar numa tarefa passo a passo. O que queres resolver?"
+    if intent == "thanks":
+        return "De nada. Continuo disponível — podemos avançar para o próximo passo quando quiseres."
+    if intent == "farewell":
+        return "Até já. Quando voltares, retomamos a conversa a partir do que estiver guardado neste dispositivo."
+    if intent == "identity":
+        return "Sou a WYZEN, uma assistente pessoal em desenvolvimento. Combino regras de diálogo, contexto recente e um classificador próprio; não sou ainda um modelo generativo geral."
+    if intent == "creator":
+        return "O meu criador é Podolsky Wyzen P. O projeto está a ser construído manualmente no GitHub."
+    if intent == "capabilities":
+        return "Neste momento consigo interpretar comandos definidos, apoiar planeamento, gerir tarefas e memória local no Android e preparar algumas ações do telefone. A conversa contextual está em evolução; pesquisa web, leitura da caixa de SMS e voz contínua em segundo plano ainda não estão ligadas."
+    if intent == "time":
+        return "A hora do servidor é " + datetime.now().astimezone().strftime("%H:%M") + ". Para a hora exata do telefone, usa o comando local no Android."
+    if intent == "planning":
+        return "Vamos estruturar isso. Qual é o resultado que queres alcançar? Depois organizo as etapas, prioridades e dependências."
+    if intent == "learning":
+        return "Posso trabalhar contigo por etapas: explico, dou um exemplo e ajusto a explicação com base na tua correção. Que assunto queres aprender?"
+    if intent == "search":
+        return "A pesquisa externa ainda não está integrada neste servidor. Posso ajudar a formular a pesquisa ou analisar o conteúdo que partilhares."
+    if intent == "translation":
+        return "Envia o texto e indica o idioma de destino. Posso ajudar com traduções simples, mas deves rever expressões técnicas ou oficiais."
+    if intent == "opinion":
+        return "Posso comparar vantagens, riscos e consequências com base no que me contares. Qual é a situação concreta?"
+    if intent == "clarification":
+        return "Claro. A minha última resposta foi: " + (context[-1][1] if context else "ainda não há uma resposta anterior nesta sessão") + ". Que parte queres que eu esclareça?"
+    if intent == "followup" and last_user:
+        return "Percebi que estás a continuar o assunto anterior: «" + last_user[:220] + "». Diz-me o detalhe que queres acrescentar ou alterar."
+    return "Quero perceber corretamente antes de responder. Qual é o objetivo principal e que resultado esperas? Se preferires, dá-me um exemplo concreto."
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "name": "WYZEN", "model": "own-intent-engine", "trained_model": MODEL_PATH.exists()}
+    return {
+        "status": "ok",
+        "name": "WYZEN",
+        "engine": "contextual-rule-dialogue",
+        "trained_model": MODEL_PATH.exists(),
+        "features": ["intent-routing", "recent-turn-context", "dialogue-state", "clarification"]
+    }
 
 
 @app.post("/v1/chat")
 def chat(payload: ChatInput):
-    intent = classify(payload.message)
-    answer = answer_for(intent, payload.message)
     connection = db()
+    context = recent_context(connection, payload.user_id)
+    intent = classify(payload.message)
+    answer = answer_for(intent, payload.message, context)
     connection.execute(
         "INSERT INTO memories(user_id, message, answer, created_at) VALUES (?, ?, ?, ?)",
         (payload.user_id, payload.message, answer, datetime.now(timezone.utc).isoformat())
     )
     connection.commit()
     connection.close()
-    return {"answer": answer, "intent": intent, "engine": "wyzen-own-engine", "actions": []}
+    return {
+        "answer": answer,
+        "intent": intent,
+        "engine": "wyzen-contextual-dialogue",
+        "context_turns": min(len(context), 6),
+        "actions": []
+    }
 
 
 @app.post("/v1/train")
