@@ -72,3 +72,27 @@ Próximas etapas: validar a API, adicionar autenticação de utilizadores, melho
 ## Limites de integração
 
 A lista de integrações é o objetivo do produto, não uma declaração de que todas as operações já estão disponíveis. WhatsApp, Meta, TikTok e Google têm regras, permissões, revisões e limitações próprias. A implementação deverá apresentar claramente o que cada conta permite fazer. O reconhecimento de voz, isoladamente, não será tratado como autenticação infalível; deverá ser combinado com mecanismos seguros do Android.
+
+## Inventário funcional Android (estado real)
+
+Implementado no código:
+- Interface central W, inicialização animada e sessão local persistida com SecureStore.
+- Entrada inicial por nome e frase falada (a frase é verificada pelo texto reconhecido; ainda não é biometria de voz).
+- Comandos por voz/texto encaminhados ao servidor próprio.
+- Abrir marcador telefónico com número, sempre deixando a confirmação final da chamada ao utilizador.
+- Preparar SMS com destinatário e texto na aplicação de mensagens; o utilizador confirma o envio no Android.
+- Procurar um contacto pelo nome com permissão do Android.
+- Criar lembrete com notificação e, quando existe calendário gravável, evento no calendário.
+- Confirmação explícita antes das ações de chamada, SMS e lembrete.
+
+Ainda por implementar e testar em dispositivo:
+- Ler SMS recebidos/conteúdo e histórico: requer integração Android nativa, permissões especiais e, em vários cenários, papel de aplicação SMS predefinida; não é fornecido pela atual camada Expo.
+- Histórico de chamadas, atender/terminar chamadas e iniciar chamadas automaticamente: requer APIs Android nativas e permissões/limitações específicas.
+- Voz contínua em segundo plano/ativação por palavra de despertar: requer serviço Android em primeiro plano, notificação persistente e testes de bateria/privacidade.
+- Gestão completa de tarefas com lista, estados, recorrência e sincronização.
+- Contactos completos, chamadas/SMS por nome com resolução robusta e desambiguação.
+- Aprendizagem persistente e memória do utilizador com controlos de privacidade.
+- Integrações oficiais e autenticação OAuth para WhatsApp, Meta, TikTok, Google e Maps.
+- Testes funcionais em aparelho real e geração do APK final.
+
+Não declarar nenhuma destas capacidades pendentes como pronta antes de estar implementada e validada. O APK só deve ser distribuído depois de CI, compilação EAS e testes reais passarem.
