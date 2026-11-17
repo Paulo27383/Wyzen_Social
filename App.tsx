@@ -12,6 +12,7 @@ import {
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
 import { rememberWyzen, recallWyzen, forgetWyzen } from "./src/core/memory";
+import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 
@@ -131,6 +132,35 @@ export default function App() {
       setListening(false);
       setStatus("Voz contínua desativada");
       setAnswer("A escuta contínua foi desligada.");
+      return;
+    }
+    const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\\s+(.+)$/i);
+    if (addTaskMatch) {
+      try {
+        const task = await addTask(addTaskMatch[1]);
+        const result = "Tarefa guardada: " + task.title;
+        setAnswer(result); setStatus("Tarefa criada"); Speech.speak(result, { language: "pt-PT" });
+      } catch (e) { setAnswer(e instanceof Error ? e.message : "Não consegui criar a tarefa."); setStatus("Erro"); }
+      return;
+    }
+    if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
+      const tasks = await listTasks();
+      const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\\n") : "Ainda não tens tarefas guardadas.";
+      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
+      return;
+    }
+    const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\\s+(.+)$/i);
+    if (completeMatch) {
+      const task = await completeTask(completeMatch[1]);
+      const result = task ? "Tarefa concluída: " + task.title : "Não encontrei essa tarefa.";
+      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
+      return;
+    }
+    const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\\s+(.+)$/i);
+    if (deleteTaskMatch) {
+      const removed = await deleteTask(deleteTaskMatch[1]);
+      const result = removed ? "Tarefa removida." : "Não encontrei essa tarefa.";
+      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
       return;
     }
     const rememberMatch = value.trim().match(/^(?:lembra-te que|lembra que|guarda na memória|memoriza)\s+(.+)$/i);
