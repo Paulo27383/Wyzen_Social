@@ -26,7 +26,8 @@ export default function App() {
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("A iniciar o núcleo WYZEN");
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);\n  const [continuousEnabled, setContinuousEnabled] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [continuousEnabled, setContinuousEnabled] = useState(false);\n  const [continuousEnabled, setContinuousEnabled] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const pulse = useRef(new Animated.Value(1)).current;
@@ -95,6 +96,14 @@ export default function App() {
   useSpeechRecognitionEvent("end", () => {
     setListening(false);
     if (enrollingVoice) setStatus("Toca no W e repete a frase de ativação");
+    else if (continuousEnabled && phase === "ready" && AppState.currentState === "active") {
+      setTimeout(() => {
+        try {
+          ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true });
+          setListening(true);
+        } catch { setListening(false); }
+      }, 500);
+    }
   });
   useSpeechRecognitionEvent("error", event => {
     setListening(false);
@@ -105,10 +114,34 @@ export default function App() {
 
   const runCommand = async (value: string) => {
     if (!value.trim() || busy) return;
+    const normalized = value.trim().toLocaleLowerCase("pt-PT");
+    if (/^(ativa|ativar|liga) voz contínua$/.test(normalized)) {
+      setContinuousEnabled(true);
+      setStatus("Voz contínua ativa enquanto a WYZEN estiver aberta");
+      try { ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true }); setListening(true); }
+      catch { setStatus("Não foi possível iniciar a voz contínua"); }
+      setAnswer("A WYZEN continuará a ouvir enquanto a aplicação estiver em primeiro plano. Em segundo plano, o Android exige um serviço nativo próprio.");
+      return;
+    }
+    if (/^(desativa|desativar|desliga) voz contínua$/.test(normalized)) {
+      setContinuousEnabled(false);
+      try { ExpoSpeechRecognitionModule.stop(); } catch { /* já parada */ }
+      setListening(false);
+      setStatus("Voz contínua desativada");
+      setAnswer("A escuta contínua foi desligada.");
+      return;
+    }
     setBusy(true);
     setAnswer("");
     setStatus("A pensar");
     try {
+      const control = await runControlCommand(value.trim());
+      if (control.handled) {
+        setAnswer(control.message || "Comando do Centro de Controlo concluído.");
+        setStatus("Centro de Controlo");
+        Speech.speak(control.message || "Concluído", { language: "pt-PT" });
+        return;
+      }
       const localAction = parsePhoneCommand(value.trim());
       if (localAction) {
         setBusy(false);
@@ -173,7 +206,18 @@ export default function App() {
     }
   };
 
-  useEffect(() => {\n    const subscription = AppState.addEventListener("change", state => {\n      if (state !== "active" && continuousEnabled) {\n        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }\n        setListening(false);\n        setStatus("Voz pausada pelo Android em segundo plano");\n      }\n    });\n    return () => subscription.remove();\n  }, [continuousEnabled]);\n\n  const sendTypedCommand = () => {
+  useEffect(() => {\n    const subscription = AppState.addEventListener("change", state => {\n      if (state !== "active" && continuousEnabled) {\n        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }\n        setListening(false);\n        setStatus("Voz pausada pelo Android em segundo plano");\n      }\n    });\n    return () => subscription.remove();\n  }, [continuousEnabled]);\n\n  useEffect(() => {
+    const subscription = AppState.addEventListener("change", state => {
+      if (state !== "active" && continuousEnabled) {
+        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
+        setListening(false);
+        setStatus("Voz pausada pelo Android em segundo plano");
+      }
+    });
+    return () => subscription.remove();
+  }, [continuousEnabled]);
+
+  const sendTypedCommand = () => {
     const value = command.trim();
     if (!value) return;
     Keyboard.dismiss();
