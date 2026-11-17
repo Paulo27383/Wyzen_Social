@@ -353,15 +353,15 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#050711" />
+      <StatusBar barStyle="light-content" backgroundColor="#050306" />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
-          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text></View>
-          <View style={styles.center}>
+          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text><Text style={styles.topline}>AI  •  PODOLSKY</Text></View>
+          <View style={styles.center}><View pointerEvents="none" style={styles.waveHalo}><View style={styles.waveRed} /><View style={styles.waveBlue} /></View>
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
               <Text onPress={startVoice} style={styles.w}>W</Text>
             </Animated.View>
-            <Text style={styles.creator}>Podolsky</Text>
+            <Text style={styles.creator}>P O D O L S K Y</Text><Text style={styles.brandline}>INTELIGÊNCIA  •  EVOLUÇÃO  •  SEMPRE</Text>
             <Text style={styles.status}>{status}</Text>
             {phase === "enroll" && (
               <View style={styles.enroll}>
@@ -393,22 +393,27 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050711" },
-  screen: { flex: 1, backgroundColor: "#050711", paddingHorizontal: 25, justifyContent: "space-between" },
+  safe: { flex: 1, backgroundColor: "#050306" },
+  screen: { flex: 1, backgroundColor: "#050306", paddingHorizontal: 25, justifyContent: "space-between", overflow: "hidden" },
   top: { alignItems: "center", paddingTop: 18 },
-  wordmark: { color: "#8C9BFF", fontSize: 11, fontWeight: "800", letterSpacing: 7 },
+  wordmark: { color: "#EAF6FF", fontSize: 12, fontWeight: "900", letterSpacing: 8, textShadowColor: "#00CFFF", textShadowRadius: 14 },
+  topline: { color: "#7C879B", fontSize: 8, letterSpacing: 4, marginTop: 7 },
   center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%" },
-  w: { color: "#F4F6FF", fontSize: 142, fontWeight: "200", letterSpacing: -13, textShadowColor: "#536BFF", textShadowRadius: 34, textShadowOffset: { width: 0, height: 0 } },
-  creator: { color: "#8C9BFF", fontSize: 12, fontWeight: "700", letterSpacing: 3, marginTop: -8 },
-  status: { color: "#929CB7", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
+  waveHalo: { position: "absolute", width: 300, height: 300, alignItems: "center", justifyContent: "center" },
+  waveRed: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(255,45,75,0.72)", borderRadius: 100, transform: [{ rotate: "-28deg" }], shadowColor: "#FF234D", shadowRadius: 22, shadowOpacity: 0.9 },
+  waveBlue: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(0,205,255,0.8)", borderRadius: 100, transform: [{ rotate: "28deg" }], shadowColor: "#00CFFF", shadowRadius: 22, shadowOpacity: 0.9 },
+  w: { color: "#F1F5FA", fontSize: 142, fontWeight: "900", fontStyle: "italic", letterSpacing: -16, textShadowColor: "#00BFFF", textShadowRadius: 24, textShadowOffset: { width: 3, height: 0 } },
+  creator: { color: "#E8EDF7", fontSize: 12, fontWeight: "800", letterSpacing: 3, marginTop: -8, textShadowColor: "#FF294F", textShadowRadius: 10 },
+  brandline: { color: "#8794A8", fontSize: 8, letterSpacing: 1.5, marginTop: 12 },
+  status: { color: "#A6B2C5", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
   enroll: { width: "100%", marginTop: 38, alignItems: "center" },
   title: { color: "#F4F6FF", fontSize: 19, fontWeight: "600" },
-  hint: { color: "#929CB7", fontSize: 12, lineHeight: 19, textAlign: "center", marginTop: 9, maxWidth: 290 },
-  nameInput: { width: "82%", color: "white", borderBottomWidth: 1, borderBottomColor: "#46527A", paddingVertical: 12, textAlign: "center", fontSize: 16, marginTop: 17 },
-  phrase: { color: "#68718A", fontSize: 10, marginTop: 13, textAlign: "center" },
-  answer: { color: "#E0E5F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
-  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#202842", paddingVertical: 12, gap: 12 },
+  hint: { color: "#A6B2C5", fontSize: 12, lineHeight: 19, textAlign: "center", marginTop: 9, maxWidth: 290 },
+  nameInput: { width: "82%", color: "white", borderBottomWidth: 1, borderBottomColor: "#00BFEF", paddingVertical: 12, textAlign: "center", fontSize: 16, marginTop: 17 },
+  phrase: { color: "#748096", fontSize: 10, marginTop: 13, textAlign: "center" },
+  answer: { color: "#E0E8F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
+  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#26313D", paddingVertical: 12, gap: 12 },
   commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
-  send: { color: "#9AA8FF", fontSize: 10, fontWeight: "800", letterSpacing: 1 },
-  footer: { color: "#4E5870", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
+  send: { color: "#00D5FF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  footer: { color: "#687487", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
