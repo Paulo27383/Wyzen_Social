@@ -356,12 +356,15 @@ export default function App() {
       <StatusBar barStyle="light-content" backgroundColor="#050306" />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
-          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text><Text style={styles.topline}>AI  •  PODOLSKY</Text></View>
+          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text><Text style={styles.topline}>PERSONAL INTELLIGENCE</Text></View>
           <View style={styles.center}><View pointerEvents="none" style={styles.waveHalo}><View style={styles.waveRed} /><View style={styles.waveBlue} /></View>
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
-              <Text onPress={startVoice} style={styles.w}>W</Text>
+              <View style={styles.emblem}>
+                <Text style={styles.crown}>♛</Text>
+                <Text onPress={startVoice} style={styles.w}>W</Text>
+              </View>
             </Animated.View>
-            <Text style={styles.creator}>P O D O L S K Y</Text><Text style={styles.brandline}>INTELIGÊNCIA  •  EVOLUÇÃO  •  SEMPRE</Text>
+            <Text style={styles.creator}>WYZEN AI</Text><Text style={styles.brandline}>YOUR PERSONAL CONTROL CENTER</Text>
             <Text style={styles.status}>{status}</Text>
             {phase === "enroll" && (
               <View style={styles.enroll}>
@@ -396,15 +399,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#050306" },
   screen: { flex: 1, backgroundColor: "#050306", paddingHorizontal: 25, justifyContent: "space-between", overflow: "hidden" },
   top: { alignItems: "center", paddingTop: 18 },
-  wordmark: { color: "#EAF6FF", fontSize: 12, fontWeight: "900", letterSpacing: 8, textShadowColor: "#00CFFF", textShadowRadius: 14 },
-  topline: { color: "#7C879B", fontSize: 8, letterSpacing: 4, marginTop: 7 },
+  wordmark: { color: "#F5F8FF", fontSize: 18, fontWeight: "900", letterSpacing: 9, textShadowColor: "#00CFFF", textShadowRadius: 16 },
+  topline: { color: "#9AA9C2", fontSize: 8, fontWeight: "700", letterSpacing: 3.2, marginTop: 7 },
   center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%" },
   waveHalo: { position: "absolute", width: 300, height: 300, alignItems: "center", justifyContent: "center" },
   waveRed: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(255,45,75,0.72)", borderRadius: 100, transform: [{ rotate: "-28deg" }], shadowColor: "#FF234D", shadowRadius: 22, shadowOpacity: 0.9 },
   waveBlue: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(0,205,255,0.8)", borderRadius: 100, transform: [{ rotate: "28deg" }], shadowColor: "#00CFFF", shadowRadius: 22, shadowOpacity: 0.9 },
-  w: { color: "#F1F5FA", fontSize: 142, fontWeight: "900", fontStyle: "italic", letterSpacing: -16, textShadowColor: "#00BFFF", textShadowRadius: 24, textShadowOffset: { width: 3, height: 0 } },
-  creator: { color: "#E8EDF7", fontSize: 12, fontWeight: "800", letterSpacing: 3, marginTop: -8, textShadowColor: "#FF294F", textShadowRadius: 10 },
-  brandline: { color: "#8794A8", fontSize: 8, letterSpacing: 1.5, marginTop: 12 },
+  emblem: { alignItems: "center", justifyContent: "center", minWidth: 230, minHeight: 220 },
+  crown: { color: "#EAF6FF", fontSize: 62, lineHeight: 72, fontWeight: "900", textShadowColor: "#00CFFF", textShadowRadius: 18, marginBottom: -18, zIndex: 2 },
+  w: { color: "#F1F5FA", fontSize: 150, fontWeight: "900", fontStyle: "italic", letterSpacing: -18, textShadowColor: "#00BFFF", textShadowRadius: 24, textShadowOffset: { width: 3, height: 0 } },
+  creator: { color: "#F5F8FF", fontSize: 15, fontWeight: "900", letterSpacing: 6, marginTop: -5, textShadowColor: "#FF294F", textShadowRadius: 14 },
+  brandline: { color: "#8794A8", fontSize: 8, fontWeight: "700", letterSpacing: 2, marginTop: 12 },
   status: { color: "#A6B2C5", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
   enroll: { width: "100%", marginTop: 38, alignItems: "center" },
   title: { color: "#F4F6FF", fontSize: 19, fontWeight: "600" },
