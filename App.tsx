@@ -29,7 +29,6 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [continuousEnabled, setContinuousEnabled] = useState(false);
-  const [continuousEnabled, setContinuousEnabled] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const pulse = useRef(new Animated.Value(1)).current;
@@ -69,7 +68,7 @@ export default function App() {
     const transcript = event.results?.[0]?.transcript?.trim();
     if (!transcript) return;
     if (enrollingVoice) {
-      const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+      const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (!normalized.includes("minha voz") || !normalized.includes("minha chave")) {
         setStatus("Frase não reconhecida. Tenta novamente.");
         setEnrollingVoice(false);
@@ -207,17 +206,6 @@ export default function App() {
       setStatus("Voz indisponível nesta compilação");
     }
   };
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", state => {
-      if (state !== "active" && continuousEnabled) {
-        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
-        setListening(false);
-        setStatus("Voz pausada pelo Android em segundo plano");
-      }
-    });
-    return () => subscription.remove();
-  }, [continuousEnabled]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => {
