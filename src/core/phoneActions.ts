@@ -1,4 +1,5 @@
-import { Alert, Linking, Platform } from "react-native";
+import { Alert, Platform, PermissionsAndroid } from "react-native";
+import * as IntentLauncher from "expo-intent-launcher";
 import * as Contacts from "expo-contacts";
 import * as SMS from "expo-sms";
 import * as Calendar from "expo-calendar";
@@ -40,10 +41,20 @@ export async function findContact(name: string): Promise<string> {
 
 export async function performPhoneAction(action: PendingPhoneAction): Promise<string> {
   if (action.type === "call") {
-    const url = `tel:${action.phone}`;
-    if (Platform.OS !== "android") throw new Error("Esta ação está preparada para Android.");
-    await Linking.openURL(url);
-    return "Abri o marcador com o número. Confirma a chamada no telemóvel.";
+    if (Platform.OS !== "android") throw new Error("A chamada direta está disponível apenas no Android.");
+    const permission = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CALL_PHONE, {
+      title: "Permissão para chamadas da WYZEN",
+      message: "A WYZEN precisa de autorização para iniciar a chamada que acabaste de confirmar.",
+      buttonPositive: "Permitir",
+      buttonNegative: "Cancelar"
+    });
+    if (permission !== PermissionsAndroid.RESULTS.GRANTED) {
+      throw new Error("A chamada não foi iniciada: a permissão para telefonar não foi concedida.");
+    }
+    await IntentLauncher.startActivityAsync("android.intent.action.CALL", {
+      data: `tel:${action.phone}`
+    });
+    return "O Android recebeu o pedido para iniciar a chamada. A ligação pode depender da rede e do estado do SIM.";
   }
   if (action.type === "sms") {
     const available = await SMS.isAvailableAsync();
