@@ -19,6 +19,7 @@ import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
 const WAKE_PHRASE = "A minha voz é a minha chave";
+const WAKE_WORD = "Wyzen";
 
 type Profile = { name: string };
 
@@ -91,9 +92,28 @@ export default function App() {
         Alert.alert("WYZEN", "Não foi possível guardar a sessão neste dispositivo.");
       });
     } else {
-      setCommand(transcript);
-      setStatus("A compreender o teu pedido");
-      runCommand(transcript);
+      // Em modo contínuo, só aceita comandos depois da palavra-chave Wyzen.
+      if (continuousEnabled) {
+        const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const wakeMatch = normalized.match(/\bwyzen\b[,:;.!?\s-]*(.*)$/i);
+        if (!wakeMatch) {
+          setStatus("À escuta — diz Wyzen para me chamar");
+          return;
+        }
+        const commandAfterWake = wakeMatch[1].trim();
+        if (!commandAfterWake) {
+          setStatus("Estou aqui. Diz o que precisas.");
+          Speech.speak("Estou aqui. Diz o que precisas.", { language: "pt-PT" });
+          return;
+        }
+        setCommand(commandAfterWake);
+        setStatus("Palavra-chave reconhecida. A compreender...");
+        runCommand(commandAfterWake);
+      } else {
+        setCommand(transcript);
+        setStatus("A compreender o teu pedido");
+        runCommand(transcript);
+      }
     }
   });
   useSpeechRecognitionEvent("end", () => {
@@ -118,12 +138,12 @@ export default function App() {
   const runCommand = async (value: string) => {
     if (!value.trim() || busy) return;
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
-    if (/^(ativa|ativar|liga) voz contínua$/.test(normalized)) {
+    if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
       setContinuousEnabled(true);
       setStatus("Voz contínua ativa enquanto a WYZEN estiver aberta");
       try { ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true }); setListening(true); }
       catch { setStatus("Não foi possível iniciar a voz contínua"); }
-      setAnswer("A WYZEN continuará a ouvir enquanto a aplicação estiver em primeiro plano. Em segundo plano, o Android exige um serviço nativo próprio.");
+      setAnswer("Modo de palavra-chave ativo. Diz “Wyzen” e depois o teu comando. A escuta funciona enquanto a aplicação estiver aberta e em primeiro plano; em segundo plano ainda é necessário integrar um serviço Android nativo.");
       return;
     }
     if (/^(desativa|desativar|desliga) voz contínua$/.test(normalized)) {
@@ -173,6 +193,13 @@ export default function App() {
         setAnswer(e instanceof Error ? e.message : "Não consegui guardar essa informação.");
         setStatus("Erro na memória");
       }
+      return;
+    }
+    const memoryQuestion = value.trim().match(/^(?:o que sabes sobre|o que te lembras sobre|procura na memória|consulta a memória sobre)\s+(.+)$/i);
+    if (memoryQuestion) {
+      const items = await recallWyzen(memoryQuestion[1]);
+      const result = items.length ? "Na minha memória encontrei:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Não encontrei essa informação na minha memória.";
+      setAnswer(result); setStatus("Memória consultada"); Speech.speak(result, { language: "pt-PT" });
       return;
     }
     if (/^(o que te pedi para lembrar|o que tens na memória|consulta a memória|mostra a memória)$/i.test(value.trim())) {
