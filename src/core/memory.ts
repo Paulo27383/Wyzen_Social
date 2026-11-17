@@ -28,7 +28,7 @@ export async function recallWyzen(query = ""): Promise<MemoryItem[]> {
   const items = await readAll();
   const q = query.trim().toLocaleLowerCase("pt-PT");
   if (!q) return items.slice(0, 20);
-  const terms = q.split(/\\s+/).filter(Boolean);
+  const terms = q.split(" ").filter(Boolean);
   return items.filter(item => terms.some(term => item.text.toLocaleLowerCase("pt-PT").includes(term))).slice(0, 20);
 }
 
@@ -46,5 +46,5 @@ export async function forgetWyzen(query: string): Promise<number> {
 
 export async function memoryContext(): Promise<string> {
   const items = await readAll();
-  return items.slice(0, 12).map(item => "- " + item.text).join("\\n");
+  return items.slice(0, 12).map(item => "- " + item.text).join(String.fromCharCode(10));
 }
