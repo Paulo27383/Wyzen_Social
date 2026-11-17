@@ -20,6 +20,12 @@ import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
 const WAKE_PHRASE = "A minha voz é a minha chave";
+ // A voz pronuncia a marca como uma palavra, sem alterar o texto apresentado.
+const speakWyzen = (text: string, options: Speech.SpeechOptions = {}) => {
+  const spokenText = text.replace(/\bwyzen\b/gi, "Uáizen");
+  Speech.speak(spokenText, options);
+};
+
 
 type Profile = { name: string };
 
@@ -103,7 +109,7 @@ export default function App() {
         const commandAfterWake = wakeMatch[1].trim();
         if (!commandAfterWake) {
           setStatus("Estou aqui. Diz o que precisas.");
-          Speech.speak("Estou aqui. Diz o que precisas.", { language: "pt-PT" });
+          speakWyzen("Estou aqui. Diz o que precisas.", { language: "pt-PT" });
           return;
         }
         setCommand(commandAfterWake);
@@ -160,28 +166,28 @@ export default function App() {
       try {
         const task = await addTask(addTaskMatch[1]);
         const result = "Tarefa guardada: " + task.title;
-        setAnswer(result); setStatus("Tarefa criada"); Speech.speak(result, { language: "pt-PT" });
+        setAnswer(result); setStatus("Tarefa criada"); speakWyzen(result, { language: "pt-PT" });
       } catch (e) { setAnswer(e instanceof Error ? e.message : "Não consegui criar a tarefa."); setStatus("Erro"); }
       return;
     }
     if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
       const tasks = await listTasks();
       const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\n") : "Ainda não tens tarefas guardadas.";
-      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\s+(.+)$/i);
     if (completeMatch) {
       const task = await completeTask(completeMatch[1]);
       const result = task ? "Tarefa concluída: " + task.title : "Não encontrei essa tarefa.";
-      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\s+(.+)$/i);
     if (deleteTaskMatch) {
       const removed = await deleteTask(deleteTaskMatch[1]);
       const result = removed ? "Tarefa removida." : "Não encontrei essa tarefa.";
-      setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     const rememberMatch = value.trim().match(/^(?:lembra-te que|lembra que|guarda na memória|memoriza)\s+(.+)$/i);
@@ -189,7 +195,7 @@ export default function App() {
       try {
         await rememberWyzen(rememberMatch[1]);
         const result = "Guardei isso na minha memória deste telemóvel.";
-        setAnswer(result); setStatus("Memória atualizada"); Speech.speak(result, { language: "pt-PT" });
+        setAnswer(result); setStatus("Memória atualizada"); speakWyzen(result, { language: "pt-PT" });
       } catch (e) {
         setAnswer(e instanceof Error ? e.message : "Não consegui guardar essa informação.");
         setStatus("Erro na memória");
@@ -199,27 +205,27 @@ export default function App() {
     if (/^(resumo de hoje|resume o meu dia|o que fizemos hoje)$/i.test(value.trim())) {
       const history = await dailyInteractions();
       const result = history.length ? "Resumo do dia: " + history.length + " interações guardadas.\\n" + history.slice(0, 10).map((item, index) => (index + 1) + ". " + item.userText + " — " + item.assistantText.slice(0, 180)).join("\\n") : "Ainda não há interações guardadas hoje.";
-      setAnswer(result); setStatus("Resumo diário"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Resumo diário"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     const memoryQuestion = value.trim().match(/^(?:o que sabes sobre|o que te lembras sobre|procura na memória|consulta a memória sobre)\s+(.+)$/i);
     if (memoryQuestion) {
       const items = await recallWyzen(memoryQuestion[1]);
       const result = items.length ? "Na minha memória encontrei:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Não encontrei essa informação na minha memória.";
-      setAnswer(result); setStatus("Memória consultada"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Memória consultada"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     if (/^(o que te pedi para lembrar|o que tens na memória|consulta a memória|mostra a memória)$/i.test(value.trim())) {
       const items = await recallWyzen();
       const result = items.length ? "Lembro-me de:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Ainda não guardaste informações na minha memória.";
-      setAnswer(result); setStatus("Memória consultada"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Memória consultada"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     const forgetMatch = value.trim().match(/^(?:esquece|apaga da memória)\s+(.+)$/i);
     if (forgetMatch) {
       const count = await forgetWyzen(forgetMatch[1]);
       const result = count ? "Apaguei " + count + " informação(ões) da memória local." : "Não encontrei essa informação na memória.";
-      setAnswer(result); setStatus("Memória atualizada"); Speech.speak(result, { language: "pt-PT" });
+      setAnswer(result); setStatus("Memória atualizada"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
     if (/^(apaga toda a memória|esquece tudo)$/i.test(value.trim())) {
@@ -228,7 +234,7 @@ export default function App() {
         { text: "Apagar", style: "destructive", onPress: async () => {
           const count = await forgetWyzen("");
           const result = "Apaguei toda a memória local (" + count + " registos).";
-          setAnswer(result); setStatus("Memória apagada"); Speech.speak(result, { language: "pt-PT" });
+          setAnswer(result); setStatus("Memória apagada"); speakWyzen(result, { language: "pt-PT" });
         }}
       ]);
       return;
@@ -241,7 +247,7 @@ export default function App() {
       if (control.handled) {
         setAnswer(control.message || "Comando do Centro de Controlo concluído.");
         setStatus("Centro de Controlo");
-        Speech.speak(control.message || "Concluído", { language: "pt-PT" });
+        speakWyzen(control.message || "Concluído", { language: "pt-PT" });
         return;
       }
       const localAction = parsePhoneCommand(value.trim());
@@ -254,7 +260,7 @@ export default function App() {
             const result = await performPhoneAction(localAction);
             setAnswer(result);
             setStatus("Concluído");
-            Speech.speak(result, { language: "pt-PT" });
+            speakWyzen(result, { language: "pt-PT" });
           } catch (e) {
             const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
             setAnswer(message);
@@ -278,7 +284,7 @@ export default function App() {
             const result = await performPhoneAction(action);
             setAnswer(result);
             setStatus("Concluído");
-            Speech.speak(result, { language: "pt-PT" });
+            speakWyzen(result, { language: "pt-PT" });
           } catch (e) {
             const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
             setAnswer(message);
@@ -293,7 +299,7 @@ export default function App() {
         const result = "Encontrei o número: " + phone;
         setAnswer(result);
         setStatus("Concluído");
-        Speech.speak(result, { language: "pt-PT" });
+        speakWyzen(result, { language: "pt-PT" });
         return;
       }
       const reply = await askWyzen(value.trim());
@@ -301,7 +307,7 @@ export default function App() {
       const kind = /conselho|aconselha|o que devo fazer|que sugeres/i.test(value) ? "advice" : /resume|resumo|sintetiza/i.test(value) ? "summary" : "conversation";
       await recordInteraction(value, reply.answer, kind);
       setStatus("Concluído — interação guardada");
-      if (reply.answer) Speech.speak(reply.answer, { language: "pt-PT", rate: 0.95 });
+      if (reply.answer) speakWyzen(reply.answer, { language: "pt-PT", rate: 0.95 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro no motor WYZEN.";
       setAnswer(message);
