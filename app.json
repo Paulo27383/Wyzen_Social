@@ -7,13 +7,25 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.wyzen.ai",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_CONTACTS",
+        "WRITE_CALENDAR",
+        "READ_CALENDAR",
+        "CALL_PHONE"
+      ]
     },
     "plugins": [
-      ["expo-speech-recognition", {
-        "microphonePermission": "WYZEN AI precisa do microfone para receber comandos de voz.",
-        "speechRecognitionPermission": "WYZEN AI usa reconhecimento de voz para compreender os teus comandos."
-      }]
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "WYZEN AI precisa do microfone para receber comandos de voz.",
+          "speechRecognitionPermission": "WYZEN AI usa reconhecimento de voz para compreender os teus comandos."
+        }
+      ],
+      "expo-contacts",
+      "expo-calendar",
+      "expo-notifications"
     ]
   }
 }
