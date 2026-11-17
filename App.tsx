@@ -11,6 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
+import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -108,6 +109,34 @@ export default function App() {
     setAnswer("");
     setStatus("A pensar");
     try {
+      const localAction = parsePhoneCommand(value.trim());
+      if (localAction) {
+        setBusy(false);
+        confirmPhoneAction(localAction, async () => {
+          setBusy(true);
+          setStatus("A executar ação no Android");
+          try {
+            const result = await performPhoneAction(localAction);
+            setAnswer(result);
+            setStatus("Concluído");
+            Speech.speak(result, { language: "pt-PT" });
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
+            setAnswer(message);
+            setStatus("Ação não concluída");
+          } finally { setBusy(false); }
+        });
+        return;
+      }
+      const contactMatch = value.trim().match(/^(?:procura|encontra|pesquisa) contacto (.+)$/i);
+      if (contactMatch) {
+        const phone = await findContact(contactMatch[1]);
+        const result = "Encontrei o número: " + phone;
+        setAnswer(result);
+        setStatus("Concluído");
+        Speech.speak(result, { language: "pt-PT" });
+        return;
+      }
       const reply = await askWyzen(value.trim());
       setAnswer(reply.answer);
       setStatus("Concluído");
