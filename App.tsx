@@ -11,6 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
+import { rememberWyzen, recallWyzen, forgetWyzen } from "./src/core/memory";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 
@@ -130,6 +131,42 @@ export default function App() {
       setListening(false);
       setStatus("Voz contínua desativada");
       setAnswer("A escuta contínua foi desligada.");
+      return;
+    }
+    const rememberMatch = value.trim().match(/^(?:lembra-te que|lembra que|guarda na memória|memoriza)\s+(.+)$/i);
+    if (rememberMatch) {
+      try {
+        await rememberWyzen(rememberMatch[1]);
+        const result = "Guardei isso na minha memória deste telemóvel.";
+        setAnswer(result); setStatus("Memória atualizada"); Speech.speak(result, { language: "pt-PT" });
+      } catch (e) {
+        setAnswer(e instanceof Error ? e.message : "Não consegui guardar essa informação.");
+        setStatus("Erro na memória");
+      }
+      return;
+    }
+    if (/^(o que te pedi para lembrar|o que tens na memória|consulta a memória|mostra a memória)$/i.test(value.trim())) {
+      const items = await recallWyzen();
+      const result = items.length ? "Lembro-me de:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Ainda não guardaste informações na minha memória.";
+      setAnswer(result); setStatus("Memória consultada"); Speech.speak(result, { language: "pt-PT" });
+      return;
+    }
+    const forgetMatch = value.trim().match(/^(?:esquece|apaga da memória)\s+(.+)$/i);
+    if (forgetMatch) {
+      const count = await forgetWyzen(forgetMatch[1]);
+      const result = count ? "Apaguei " + count + " informação(ões) da memória local." : "Não encontrei essa informação na memória.";
+      setAnswer(result); setStatus("Memória atualizada"); Speech.speak(result, { language: "pt-PT" });
+      return;
+    }
+    if (/^(apaga toda a memória|esquece tudo)$/i.test(value.trim())) {
+      Alert.alert("Apagar memória", "Queres apagar todas as informações guardadas neste telemóvel?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Apagar", style: "destructive", onPress: async () => {
+          const count = await forgetWyzen("");
+          const result = "Apaguei toda a memória local (" + count + " registos).";
+          setAnswer(result); setStatus("Memória apagada"); Speech.speak(result, { language: "pt-PT" });
+        }}
+      ]);
       return;
     }
     setBusy(true);
