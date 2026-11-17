@@ -142,7 +142,7 @@ export default function App() {
   });
 
   const runCommand = async (rawValue: string, skipCompound = false) => {
-    if (!rawValue.trim() || busy) return;
+    if (!rawValue.trim() || (busy && !skipCompound)) return;
     if (!skipCompound) {
       const compoundPlan = planCompoundCommand(rawValue);
       if (compoundPlan.isCompound && compoundPlan.supported) {
