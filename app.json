@@ -26,6 +26,11 @@
       "expo-contacts",
       "expo-calendar",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7c9e460c-872f-4525-8f87-ef8f9bc95592"
+      }
+    }
   }
 }
