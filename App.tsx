@@ -360,7 +360,6 @@ export default function App() {
           <View style={styles.center}><View pointerEvents="none" style={styles.waveHalo}><View style={styles.waveRed} /><View style={styles.waveBlue} /></View>
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
               <View style={styles.emblem}>
-                <Text style={styles.crown}>♛</Text>
                 <Text onPress={startVoice} style={styles.w}>W</Text>
               </View>
             </Animated.View>
