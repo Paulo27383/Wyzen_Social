@@ -440,6 +440,29 @@ export default function App() {
     runCommand(value);
   };
 
+  const openSystems = () => {
+    if (busy) return;
+    Alert.alert("SISTEMAS WYZEN", "Escolhe uma ferramenta do núcleo:", [
+      { text: "Tarefas", onPress: () => runQuickAction("mostra tarefas") },
+      { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
+      { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
+      { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
+      { text: modelReady ? "Cérebro local instalado" : "Instalar cérebro local · 271 MB", onPress: () => { if (!modelReady) installLocalModel(); } },
+      { text: "Fechar", style: "cancel" }
+    ]);
+  };
+
+  const executeCommand = () => {
+    const value = command.trim();
+    if (!value) {
+      Alert.alert("EXECUTAR", "Escreve ou dita primeiro o que queres que a Wyzen faça.");
+      return;
+    }
+    Keyboard.dismiss();
+    runCommand(value);
+    setCommand("");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#050306" />
@@ -471,41 +494,20 @@ export default function App() {
             <View style={styles.composer}>
               <TextInput value={command} onChangeText={setCommand}
                 onSubmitEditing={sendTypedCommand} returnKeyType="send"
-                placeholder="Ou escreve um comando..." placeholderTextColor="#68718A"
+                placeholder="Escreve ou dita à Wyzen..." placeholderTextColor="#68718A"
                 style={styles.commandInput} multiline />
-              <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.sendButton, pressed && styles.sendPressed]}><Text style={styles.send}>ENVIAR</Text></Pressable>
             </View>
-          )}
-          {phase === "ready" && (
-            <View style={styles.quickActions}>
-              <Pressable disabled={busy} onPress={() => runQuickAction("mostra tarefas")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
-                <Text style={styles.quickButtonText}>✓  TAREFAS</Text>
+            <View style={styles.primaryActions}>
+              <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.primaryButton, styles.sendButton, pressed && styles.quickPressed]}>
+                <Text style={styles.send}>ENVIAR</Text>
               </Pressable>
-              <Pressable disabled={busy} onPress={() => runQuickAction("consulta a memória")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
-                <Text style={styles.quickButtonText}>◇  MEMÓRIA</Text>
+              <Pressable onPress={executeCommand} disabled={busy} accessibilityRole="button" accessibilityLabel="Executar pedido" style={({ pressed }) => [styles.primaryButton, styles.executeButton, pressed && styles.quickPressed]}>
+                <Text style={styles.executeText}>✦  EXECUTAR</Text>
               </Pressable>
-              <Pressable disabled={busy} onPress={() => runQuickAction("resumo de hoje")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
-                <Text style={styles.quickButtonText}>◷  RESUMO DO DIA</Text>
-              </Pressable>
-              <Pressable disabled={busy} onPress={() => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua")} style={({ pressed }) => [styles.quickButton, continuousEnabled && styles.quickButtonActive, pressed && styles.quickPressed]}>
-                <Text style={styles.quickButtonText}>{continuousEnabled ? "◉  DESATIVAR VOZ" : "◉  VOZ CONTÍNUA"}</Text>
+              <Pressable onPress={openSystems} disabled={busy} accessibilityRole="button" accessibilityLabel="Abrir sistemas" style={({ pressed }) => [styles.primaryButton, styles.systemsButton, pressed && styles.quickPressed]}>
+                <Text style={styles.systemsText}>⌘  SISTEMAS</Text>
               </Pressable>
             </View>
-          )}
-          {phase === "ready" && (
-            <Pressable
-              onPress={installLocalModel}
-              disabled={modelReady || modelBusy}
-              accessibilityRole="button"
-              accessibilityLabel={modelReady ? "Cérebro local instalado" : "Instalar cérebro local"}
-              style={styles.modelButton}
-            >
-              <Text style={styles.modelButtonText}>
-                {modelReady ? "CÉREBRO LOCAL INSTALADO" : modelBusy ? "A DESCARREGAR CÉREBRO LOCAL..." : "INSTALAR CÉREBRO LOCAL · 271 MB"}
-              </Text>
-              {modelBusy && <Text style={styles.modelHint}>{Math.round(modelProgress * 100)}% concluído</Text>}
-              {!modelReady && !modelBusy && <Text style={styles.modelHint}>Download único • respostas generativas no dispositivo</Text>}
-            </Pressable>
           )}
           <Text style={styles.footer}>ASSISTENTE PESSOAL • SESSÃO PRIVADA</Text>
         </View>
@@ -536,18 +538,17 @@ const styles = StyleSheet.create({
   nameInput: { width: "82%", color: "white", borderBottomWidth: 1, borderBottomColor: "#00BFEF", paddingVertical: 12, textAlign: "center", fontSize: 16, marginTop: 17 },
   phrase: { color: "#748096", fontSize: 10, marginTop: 13, textAlign: "center" },
   answer: { color: "#E0E8F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
-  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#26313D", paddingVertical: 12, gap: 12 },
+  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#26313D", paddingTop: 10, paddingBottom: 6, gap: 12 },
+  primaryActions: { flexDirection: "row", gap: 8, paddingBottom: 10 },
+  primaryButton: { flex: 1, minWidth: 0, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  executeButton: { borderWidth: 1, borderColor: "rgba(255,45,90,0.65)", backgroundColor: "rgba(255,45,90,0.10)" },
+  executeText: { color: "#FF6685", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
+  systemsButton: { borderWidth: 1, borderColor: "rgba(160,130,255,0.65)", backgroundColor: "rgba(125,90,220,0.12)" },
+  systemsText: { color: "#C1A9FF", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
   commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
-  sendButton: { minWidth: 92, height: 48, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)", alignItems: "center", justifyContent: "center" },
+  sendButton: { borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)" },
   sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   send: { color: "#00D5FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
-  quickActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, paddingBottom: 10 },
-  quickButton: { minWidth: "46%", flexGrow: 1, borderWidth: 1, borderColor: "rgba(0,213,255,0.28)", backgroundColor: "rgba(10,20,34,0.82)", borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
-  quickButtonActive: { borderColor: "rgba(0,213,255,0.75)", backgroundColor: "rgba(0,213,255,0.13)" },
   quickPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
-  quickButtonText: { color: "#C7D7E8", fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
-  modelButton: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,213,255,0.45)", backgroundColor: "rgba(0,213,255,0.07)", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 4 },
-  modelButtonText: { color: "#00D5FF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  modelHint: { color: "#8998AD", fontSize: 9, marginTop: 5, textAlign: "center" },
   footer: { color: "#687487", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
