@@ -1,5 +1,5 @@
 export type LocalIntent =
-  | "greeting" | "creator" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
+  | "greeting" | "creator" | "profile" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
 
 export type CommandResult = {
   title: string;
@@ -16,6 +16,7 @@ const sensitiveTerms = [
 
 export function classifyLocalIntent(raw: string): LocalIntent {
   const value = raw.trim().toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\b(quem e podolsky|quem e o podolsky|fala sobre podolsky|perfil de podolsky|quem e podolsky wyzen)\b/.test(value)) return "profile";
   if (/\b(quem (te|a) criou|quem criou voce|quem criou você|quem (te|a) fez|quem e o teu criador|quem e seu criador|quem desenvolveu)\b/.test(value)) return "creator";
   if (/^(ola|olá|oi|bom dia|boa tarde|boa noite|hey)\b/.test(value)) return "greeting";
   if (/\b(que horas|horas sao|hora atual|diz as horas)\b/.test(value)) return "time";
@@ -41,6 +42,9 @@ export function planCommand(raw: string): CommandResult {
   }
   if (intent === "creator") {
     return { title: "O meu criador", steps: ["Meu criador é Podolsky Wyzen P e me criou manualmente com GitHub."], requiresConfirmation: false, status: "planned", intent };
+  }
+  if (intent === "profile") {
+    return { title: "Quem é Podolsky Wyzen P", steps: ["Podolsky Wyzen P tem 16 anos, mede 1,70 m e pesa 54 kg.", "Está a frequentar o curso técnico de Enfermagem Geral.", "A sua perspetiva de futuro é unir a Enfermagem Geral à tecnologia e ao empreendedorismo: cuidar de pessoas, desenvolver soluções tecnológicas e criar projetos e negócios com impacto positivo.", "Podolsky é o meu criador e idealizador. Fui concebida para o apoiar nos estudos, na organização e nos seus projetos."], requiresConfirmation: false, status: "planned", intent };
   }
   if (intent === "time") {
     return { title: "Hora atual", steps: [new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(new Date())], requiresConfirmation: false, status: "planned", intent };
