@@ -22,6 +22,7 @@ app = FastAPI(title="WYZEN Conversational Intelligence", version="0.2.0")
 class ChatInput(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     user_id: str = Field(default="android-user", min_length=1, max_length=100)
+    memory_context: str = Field(default="", max_length=12000)
 
 
 class TrainingExample(BaseModel):
@@ -92,9 +93,12 @@ def recent_context(connection, user_id: str):
     return list(reversed(rows))
 
 
-def answer_for(intent: str, message: str, context) -> str:
+def answer_for(intent: str, message: str, context, memory_context: str = "") -> str:
     last_user = context[-1][0] if context else ""
+    last_answer = context[-1][1] if context else ""
     value = normalize(message)
+    memories = [line.strip()[2:] for line in memory_context.splitlines() if line.strip().startswith("- ")][:12]
+    memory_hint = (" Tenho também estas notas que me pediste para guardar: " + "; ".join(memories[:4]) + ".") if memories else ""
 
     if intent == "greeting":
         return "Olá! Estou aqui. Podemos conversar normalmente ou trabalhar numa tarefa passo a passo. O que queres resolver?"
@@ -111,7 +115,9 @@ def answer_for(intent: str, message: str, context) -> str:
     if intent == "time":
         return "A hora do servidor é " + datetime.now().astimezone().strftime("%H:%M") + ". Para a hora exata do telefone, usa o comando local no Android."
     if intent == "planning":
-        return "Vamos estruturar isso. Qual é o resultado que queres alcançar? Depois organizo as etapas, prioridades e dependências."
+        if re.search(r"\b(hoje|amanha|amanhã|semana|projeto|projecto)\b", value):
+            return "Vou organizar o plano em objetivo, tarefas, ordem e prazo. Primeiro, diz-me qual é o resultado concreto que queres alcançar e qual é o prazo." + memory_hint
+        return "Vamos estruturar isso em objetivo, etapas, prioridades e prazo. Qual é o resultado concreto que queres alcançar?" + memory_hint
     if intent == "learning":
         return "Posso trabalhar contigo por etapas: explico, dou um exemplo e ajusto a explicação com base na tua correção. Que assunto queres aprender?"
     if intent == "search":
@@ -119,11 +125,13 @@ def answer_for(intent: str, message: str, context) -> str:
     if intent == "translation":
         return "Envia o texto e indica o idioma de destino. Posso ajudar com traduções simples, mas deves rever expressões técnicas ou oficiais."
     if intent == "opinion":
-        return "Posso comparar vantagens, riscos e consequências com base no que me contares. Qual é a situação concreta?"
+        return "Posso analisar opções, vantagens, riscos e consequências. Vou separar os factos das suposições. Qual é a situação concreta?" + memory_hint
     if intent == "clarification":
-        return "Claro. A minha última resposta foi: " + (context[-1][1] if context else "ainda não há uma resposta anterior nesta sessão") + ". Que parte queres que eu esclareça?"
+        return "Claro. A minha última resposta foi: " + (last_answer[:900] if last_answer else "ainda não há uma resposta anterior nesta sessão") + ". Que parte queres que eu esclareça?"
     if intent == "followup" and last_user:
-        return "Percebi que estás a continuar o assunto anterior: «" + last_user[:220] + "». Diz-me o detalhe que queres acrescentar ou alterar."
+        return "Estou a acompanhar o assunto anterior: «" + last_user[:220] + "». A última resposta foi: «" + last_answer[:350] + "». O que queres corrigir, aprofundar ou decidir?" + memory_hint
+    if memories:
+        return "Quero perceber melhor o teu pedido antes de concluir. Vou considerar as notas que guardaste: " + "; ".join(memories[:4]) + ". Podes dar-me um exemplo ou dizer qual é o resultado que esperas?"
     return "Quero perceber corretamente antes de responder. Qual é o objetivo principal e que resultado esperas? Se preferires, dá-me um exemplo concreto."
 
 
@@ -132,9 +140,10 @@ def health():
     return {
         "status": "ok",
         "name": "WYZEN",
-        "engine": "contextual-rule-dialogue",
+        "engine": "wyzen-native-dialogue-engine",
         "trained_model": MODEL_PATH.exists(),
-        "features": ["intent-routing", "recent-turn-context", "dialogue-state", "clarification"]
+        "external_models": False,
+        "features": ["intent-routing", "recent-turn-context", "saved-user-memory-context", "dialogue-state", "clarification", "trainable-intent-classifier"]
     }
 
 
@@ -143,7 +152,7 @@ def chat(payload: ChatInput):
     connection = db()
     context = recent_context(connection, payload.user_id)
     intent = classify(payload.message)
-    answer = answer_for(intent, payload.message, context)
+    answer = answer_for(intent, payload.message, context, payload.memory_context)
     connection.execute(
         "INSERT INTO memories(user_id, message, answer, created_at) VALUES (?, ?, ?, ?)",
         (payload.user_id, payload.message, answer, datetime.now(timezone.utc).isoformat())
@@ -153,8 +162,9 @@ def chat(payload: ChatInput):
     return {
         "answer": answer,
         "intent": intent,
-        "engine": "wyzen-contextual-dialogue",
+        "engine": "wyzen-native-dialogue-engine",
         "context_turns": min(len(context), 6),
+        "memory_notes_used": min(len([line for line in payload.memory_context.splitlines() if line.strip().startswith("- ")]), 12),
         "actions": []
     }
 
