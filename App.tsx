@@ -141,15 +141,42 @@ export default function App() {
     Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const runCommand = async (rawValue: string) => {
+  const runCommand = async (rawValue: string, skipCompound = false) => {
     if (!rawValue.trim() || busy) return;
-    const compoundPlan = planCompoundCommand(rawValue);
-    if (compoundPlan.isCompound) {
-      const message = compoundPlan.clarification || "Dividi o pedido em etapas, mas preciso de mais informação.";
-      setAnswer(message);
-      setStatus(compoundPlan.supported ? "Plano preparado — aguarda confirmação" : "Preciso de esclarecimento");
-      speakWyzen(message, { language: "pt-PT" });
-      return;
+    if (!skipCompound) {
+      const compoundPlan = planCompoundCommand(rawValue);
+      if (compoundPlan.isCompound && compoundPlan.supported) {
+        const message = compoundPlan.clarification || "Plano preparado. Confirma para continuar.";
+        setAnswer(message);
+        setStatus("Plano preparado — aguarda confirmação");
+        speakWyzen(message, { language: "pt-PT" });
+        Alert.alert("Confirmar plano WYZEN", message, [
+          { text: "Cancelar", style: "cancel", onPress: () => setStatus("Plano cancelado — nenhuma etapa executada") },
+          { text: "Executar", onPress: async () => {
+            setBusy(true);
+            setStatus("A executar o plano");
+            const results: string[] = [];
+            try {
+              for (let index = 0; index < compoundPlan.steps.length; index += 1) {
+                setStatus("A executar etapa " + (index + 1) + " de " + compoundPlan.steps.length);
+                await runCommand(compoundPlan.steps[index], true);
+                results.push("Etapa " + (index + 1) + " processada: " + compoundPlan.steps[index]);
+              }
+              const summary = "Plano concluído. " + results.join(" • ");
+              setAnswer(summary);
+              setStatus("Plano concluído");
+              speakWyzen("Plano concluído.", { language: "pt-PT" });
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : "Erro desconhecido";
+              setAnswer("O plano foi interrompido na etapa " + (results.length + 1) + ". " + reason);
+              setStatus("Plano interrompido");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        ]);
+        return;
+      }
     }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
