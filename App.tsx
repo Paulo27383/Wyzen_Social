@@ -464,6 +464,21 @@ export default function App() {
               <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.sendButton, pressed && styles.sendPressed]}><Text style={styles.send}>ENVIAR</Text></Pressable>
             </View>
           )}
+          {phase === "ready" && (
+            <Pressable
+              onPress={installLocalModel}
+              disabled={modelReady || modelBusy}
+              accessibilityRole="button"
+              accessibilityLabel={modelReady ? "Cérebro local instalado" : "Instalar cérebro local"}
+              style={styles.modelButton}
+            >
+              <Text style={styles.modelButtonText}>
+                {modelReady ? "CÉREBRO LOCAL INSTALADO" : modelBusy ? "A DESCARREGAR CÉREBRO LOCAL..." : "INSTALAR CÉREBRO LOCAL · 271 MB"}
+              </Text>
+              {modelBusy && <Text style={styles.modelHint}>{Math.round(modelProgress * 100)}% concluído</Text>}
+              {!modelReady && !modelBusy && <Text style={styles.modelHint}>Download único • respostas generativas no dispositivo</Text>}
+            </Pressable>
+          )}
           <Text style={styles.footer}>ASSISTENTE PESSOAL • SESSÃO PRIVADA</Text>
         </View>
       </TouchableWithoutFeedback>
@@ -498,5 +513,8 @@ const styles = StyleSheet.create({
   sendButton: { minWidth: 92, height: 48, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)", alignItems: "center", justifyContent: "center" },
   sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   send: { color: "#00D5FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
+  modelButton: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,213,255,0.45)", backgroundColor: "rgba(0,213,255,0.07)", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 4 },
+  modelButtonText: { color: "#00D5FF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  modelHint: { color: "#8998AD", fontSize: 9, marginTop: 5, textAlign: "center" },
   footer: { color: "#687487", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
