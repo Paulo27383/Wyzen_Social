@@ -132,51 +132,36 @@ export type CompoundCommandPlan = {
 };
 
 /**
- * Breaks a compound request into explicit steps. It only approves steps
- * that map to command handlers already present in App.tsx.
- * It never executes actions or guesses missing arguments.
+ * Só prepara sequências compostas de tarefas e memória.
+ * Ações externas/sensíveis ficam fora desta execução em cadeia.
  */
 export function planCompoundCommand(raw: string): CompoundCommandPlan {
-  const input = raw.trim().replace(/\\s+/g, " ");
-  const parts = input.split(/\\s+(?:e depois|e também|e tambem|e)\\s+/i).map(part => part.trim()).filter(Boolean);
+  const input = raw.trim().replace(/\s+/g, " ");
+  const parts = input.split(/\s+(?:e depois|e também|e tambem|e)\s+/i)
+    .map(part => part.trim()).filter(Boolean);
   if (parts.length < 2) return { isCompound: false, steps: [], clarification: null, supported: false };
 
   const normalized = parts.map(normalizeNaturalCommand);
-  const isTask = (value: string) => /^(?:cria|adiciona|regista) tarefa\\s+.+$/i.test(value) ||
+  const isTask = (value: string) =>
+    /^(?:cria|adiciona|regista) tarefa\s+.+$/i.test(value) ||
     /^(?:lista|mostra|consulta) tarefas$/i.test(value) ||
-    /^(?:conclui|termina|marca como feita) tarefa\\s+.+$/i.test(value) ||
-    /^(?:apaga|elimina|remove) tarefa\\s+.+$/i.test(value);
-  const isReminder = (value: string) => /^(?:lembra-me|cria lembrete|agenda tarefa)\\s+.+\\s+(?:às|as)\\s+\\d{1,2}[:h]\\d{2}$/i.test(value);
-  const isMemory = (value: string) => /^(?:guarda na memória|memoriza|lembra-te que)\\s+.+$/i.test(value);
-  const isMemoryRead = (value: string) => /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\\s+.+)?$/i.test(value);
+    /^(?:conclui|termina|marca como feita) tarefa\s+.+$/i.test(value) ||
+    /^(?:apaga|elimina|remove) tarefa\s+.+$/i.test(value);
+  const isMemoryWrite = (value: string) =>
+    /^(?:guarda na memória|memoriza|lembra-te que)\s+.+$/i.test(value);
+  const isMemoryRead = (value: string) =>
+    /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\s+.+)?$/i.test(value);
 
-  const supported = normalized.every(value => isTask(value) || isReminder(value) || isMemory(value) || isMemoryRead(value));
-  if (!supported) {
-    return {
-      isCompound: true,
-      steps: normalized,
-      clarification: "Consigo dividir o pedido, mas pelo menos uma das etapas ainda não corresponde a uma ação local que eu possa confirmar. Diz-me qual é o resultado que pretendes para cada etapa.",
-      supported: false
-    };
-  }
-
-  const missingReminderTime = parts.some((part, index) =>
-    /\\b(?:lembra-me|cria lembrete|agenda lembrete)\\b/i.test(part) &&
-    !/(?:às|as)\\s+\\d{1,2}[:h]\\d{2}/i.test(part)
-  );
-  if (missingReminderTime) {
-    return {
-      isCompound: true,
-      steps: normalized,
-      clarification: "A que horas queres receber o lembrete? Ainda não executei nenhuma etapa.",
-      supported: true
-    };
-  }
+  // Não interceptar frases em que "e" faz parte do título de uma tarefa.
+  const supported = normalized.every(value => isTask(value) || isMemoryWrite(value) || isMemoryRead(value));
+  if (!supported) return { isCompound: false, steps: [], clarification: null, supported: false };
 
   return {
     isCompound: true,
     steps: normalized,
-    clarification: "Percebi " + normalized.length + " etapas: " + normalized.map((step, index) => (index + 1) + ") " + step).join("; ") + ". Ainda não executei nada. Confirma se este plano está correto.",
+    clarification: "Identifiquei " + normalized.length + " etapas: " +
+      normalized.map((step, index) => (index + 1) + ") " + step).join("; ") +
+      ". Queres que execute todas por esta ordem?",
     supported: true
   };
 }
