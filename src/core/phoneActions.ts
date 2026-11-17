@@ -15,7 +15,7 @@ export function parsePhoneCommand(input: string): PendingPhoneAction | null {
   if (m) return { type: "call", phone: m[1].replace(/[\s()-]/g, "") };
   m = s.match(/^(?:sms|mensagem)\s+(?:para\s+)?([+\d][\d\s()-]{5,})\s*[:;,]\s*(.+)$/i);
   if (m) return { type: "sms", phone: m[1].replace(/[\s()-]/g, ""), message: m[2].trim() };
-  m = s.match(/^(?:lembra-me|cria lembrete)\s+(?:de\s+)?(.+?)\s+(?:às|as)\s+(\d{1,2})[:h](\d{2})$/i);
+  m = s.match(/^(?:lembra-me|cria lembrete|agenda tarefa)\s+(?:de\s+)?(.+?)\s+(?:às|as)\s+(\d{1,2})[:h](\d{2})$/i);
   if (m) {
     const date = new Date();
     date.setHours(Number(m[2]), Number(m[3]), 0, 0);
