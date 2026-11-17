@@ -1,5 +1,5 @@
 export type LocalIntent =
-  | "greeting" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
+  | "greeting" | "creator" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
 
 export type CommandResult = {
   title: string;
@@ -16,6 +16,7 @@ const sensitiveTerms = [
 
 export function classifyLocalIntent(raw: string): LocalIntent {
   const value = raw.trim().toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\b(quem (te|a) criou|quem (te|a) fez|quem e o teu criador|quem e seu criador|quem desenvolveu)\b/.test(value)) return "creator";
   if (/^(ola|olá|oi|bom dia|boa tarde|boa noite|hey)\b/.test(value)) return "greeting";
   if (/\b(que horas|horas sao|hora atual|diz as horas)\b/.test(value)) return "time";
   if (/\b(que dia|data de hoje|dia de hoje|hoje e que dia)\b/.test(value)) return "date";
@@ -37,6 +38,9 @@ export function planCommand(raw: string): CommandResult {
 
   if (intent === "greeting") {
     return { title: "Saudação", steps: ["Olá! Sou a WYZEN, a tua assistente pessoal.", "Posso ajudar com comandos locais, organização e planeamento."], requiresConfirmation: false, status: "planned", intent };
+  }
+  if (intent === "creator") {
+    return { title: "O meu criador", steps: ["Meu criador é Podolsky Wyzen P e me criou manualmente com GitHub."], requiresConfirmation: false, status: "planned", intent };
   }
   if (intent === "time") {
     return { title: "Hora atual", steps: [new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(new Date())], requiresConfirmation: false, status: "planned", intent };
