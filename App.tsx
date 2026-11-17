@@ -11,6 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
+import { normalizeNaturalCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
@@ -134,8 +135,9 @@ export default function App() {
     Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const runCommand = async (value: string) => {
-    if (!value.trim() || busy) return;
+  const runCommand = async (rawValue: string) => {
+    if (!rawValue.trim() || busy) return;
+    const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
     if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
       setContinuousEnabled(true);
