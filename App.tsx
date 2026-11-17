@@ -435,6 +435,11 @@ export default function App() {
     setCommand("");
   };
 
+  const runQuickAction = (value: string) => {
+    if (busy) return;
+    runCommand(value);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#050306" />
@@ -469,6 +474,22 @@ export default function App() {
                 placeholder="Ou escreve um comando..." placeholderTextColor="#68718A"
                 style={styles.commandInput} multiline />
               <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.sendButton, pressed && styles.sendPressed]}><Text style={styles.send}>ENVIAR</Text></Pressable>
+            </View>
+          )}
+          {phase === "ready" && (
+            <View style={styles.quickActions}>
+              <Pressable disabled={busy} onPress={() => runQuickAction("mostra tarefas")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
+                <Text style={styles.quickButtonText}>✓  TAREFAS</Text>
+              </Pressable>
+              <Pressable disabled={busy} onPress={() => runQuickAction("consulta a memória")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
+                <Text style={styles.quickButtonText}>◇  MEMÓRIA</Text>
+              </Pressable>
+              <Pressable disabled={busy} onPress={() => runQuickAction("resumo de hoje")} style={({ pressed }) => [styles.quickButton, pressed && styles.quickPressed]}>
+                <Text style={styles.quickButtonText}>◷  RESUMO DO DIA</Text>
+              </Pressable>
+              <Pressable disabled={busy} onPress={() => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua")} style={({ pressed }) => [styles.quickButton, continuousEnabled && styles.quickButtonActive, pressed && styles.quickPressed]}>
+                <Text style={styles.quickButtonText}>{continuousEnabled ? "◉  DESATIVAR VOZ" : "◉  VOZ CONTÍNUA"}</Text>
+              </Pressable>
             </View>
           )}
           {phase === "ready" && (
@@ -520,6 +541,11 @@ const styles = StyleSheet.create({
   sendButton: { minWidth: 92, height: 48, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)", alignItems: "center", justifyContent: "center" },
   sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   send: { color: "#00D5FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
+  quickActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, paddingBottom: 10 },
+  quickButton: { minWidth: "46%", flexGrow: 1, borderWidth: 1, borderColor: "rgba(0,213,255,0.28)", backgroundColor: "rgba(10,20,34,0.82)", borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  quickButtonActive: { borderColor: "rgba(0,213,255,0.75)", backgroundColor: "rgba(0,213,255,0.13)" },
+  quickPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+  quickButtonText: { color: "#C7D7E8", fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
   modelButton: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,213,255,0.45)", backgroundColor: "rgba(0,213,255,0.07)", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 4 },
   modelButtonText: { color: "#00D5FF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   modelHint: { color: "#8998AD", fontSize: 9, marginTop: 5, textAlign: "center" },
