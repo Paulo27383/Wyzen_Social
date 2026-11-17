@@ -80,7 +80,6 @@ export function planCommand(raw: string): CommandResult {
  */
 export function normalizeNaturalCommand(raw: string): string {
   const value = raw.trim().replace(/\\s+/g, " ");
-  const lower = value.toLocaleLowerCase("pt-PT");
 
   let match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta) (?:uma )?tarefa(?: para| de| chamada)?\\s+(.+)$/i);
   if (match) return "cria tarefa " + match[1].trim();
@@ -89,7 +88,7 @@ export function normalizeNaturalCommand(raw: string): string {
   match = value.match(/^(?:wyzen[, ]+)?(?:mostra|lista|quais são|quais sao) (?:as )?(?:minhas )?tarefas$/i);
   if (match) return "lista tarefas";
 
-  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) que?\\s+(.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) (?:que\\s+)?(.+)$/i);
   if (match) return "guarda na memória " + match[1].trim();
   match = value.match(/^(?:wyzen[, ]+)?(?:o que sabes|o que te lembras) sobre (.+)$/i);
   if (match) return "o que sabes sobre " + match[1].trim();
