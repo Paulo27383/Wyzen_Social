@@ -491,13 +491,14 @@ export default function App() {
             )}
           </View>
           {phase === "ready" && (
-            <View style={styles.composer}>
-              <TextInput value={command} onChangeText={setCommand}
-                onSubmitEditing={sendTypedCommand} returnKeyType="send"
-                placeholder="Escreve ou dita à Wyzen..." placeholderTextColor="#68718A"
-                style={styles.commandInput} multiline />
-            </View>
-            <View style={styles.primaryActions}>
+            <View>
+              <View style={styles.composer}>
+                <TextInput value={command} onChangeText={setCommand}
+                  onSubmitEditing={sendTypedCommand} returnKeyType="send"
+                  placeholder="Escreve ou dita à Wyzen..." placeholderTextColor="#68718A"
+                  style={styles.commandInput} multiline />
+              </View>
+              <View style={styles.primaryActions}>
               <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.primaryButton, styles.sendButton, pressed && styles.quickPressed]}>
                 <Text style={styles.send}>ENVIAR</Text>
               </Pressable>
@@ -507,6 +508,7 @@ export default function App() {
               <Pressable onPress={openSystems} disabled={busy} accessibilityRole="button" accessibilityLabel="Abrir sistemas" style={({ pressed }) => [styles.primaryButton, styles.systemsButton, pressed && styles.quickPressed]}>
                 <Text style={styles.systemsText}>⌘  SISTEMAS</Text>
               </Pressable>
+              </View>
             </View>
           )}
           <Text style={styles.footer}>ASSISTENTE PESSOAL • SESSÃO PRIVADA</Text>
