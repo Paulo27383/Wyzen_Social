@@ -10,7 +10,8 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
-import { askWyzen } from "./src/core/wyzenClient";\nimport { runControlCommand } from "./src/core/controlCenter";
+import { askWyzen } from "./src/core/wyzenClient";
+import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
@@ -27,7 +28,8 @@ export default function App() {
   const [status, setStatus] = useState("A iniciar o núcleo WYZEN");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
-  const [continuousEnabled, setContinuousEnabled] = useState(false);\n  const [continuousEnabled, setContinuousEnabled] = useState(false);
+  const [continuousEnabled, setContinuousEnabled] = useState(false);
+  const [continuousEnabled, setContinuousEnabled] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const pulse = useRef(new Animated.Value(1)).current;
@@ -206,7 +208,18 @@ export default function App() {
     }
   };
 
-  useEffect(() => {\n    const subscription = AppState.addEventListener("change", state => {\n      if (state !== "active" && continuousEnabled) {\n        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }\n        setListening(false);\n        setStatus("Voz pausada pelo Android em segundo plano");\n      }\n    });\n    return () => subscription.remove();\n  }, [continuousEnabled]);\n\n  useEffect(() => {
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", state => {
+      if (state !== "active" && continuousEnabled) {
+        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
+        setListening(false);
+        setStatus("Voz pausada pelo Android em segundo plano");
+      }
+    });
+    return () => subscription.remove();
+  }, [continuousEnabled]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener("change", state => {
       if (state !== "active" && continuousEnabled) {
         try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
