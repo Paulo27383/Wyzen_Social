@@ -19,7 +19,6 @@ import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
 const WAKE_PHRASE = "A minha voz é a minha chave";
-const WAKE_WORD = "Wyzen";
 
 type Profile = { name: string };
 
