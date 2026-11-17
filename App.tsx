@@ -134,7 +134,7 @@ export default function App() {
       setAnswer("A escuta contínua foi desligada.");
       return;
     }
-    const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\\s+(.+)$/i);
+    const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
     if (addTaskMatch) {
       try {
         const task = await addTask(addTaskMatch[1]);
@@ -145,18 +145,18 @@ export default function App() {
     }
     if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
       const tasks = await listTasks();
-      const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\\n") : "Ainda não tens tarefas guardadas.";
+      const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\n") : "Ainda não tens tarefas guardadas.";
       setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
       return;
     }
-    const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\\s+(.+)$/i);
+    const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\s+(.+)$/i);
     if (completeMatch) {
       const task = await completeTask(completeMatch[1]);
       const result = task ? "Tarefa concluída: " + task.title : "Não encontrei essa tarefa.";
       setAnswer(result); setStatus("Tarefas"); Speech.speak(result, { language: "pt-PT" });
       return;
     }
-    const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\\s+(.+)$/i);
+    const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\s+(.+)$/i);
     if (deleteTaskMatch) {
       const removed = await deleteTask(deleteTaskMatch[1]);
       const result = removed ? "Tarefa removida." : "Não encontrei essa tarefa.";
