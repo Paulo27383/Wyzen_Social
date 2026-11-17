@@ -1,4 +1,4 @@
-import { planCommand } from "./assistant";
+import { classifyLocalIntent, planCommand } from "./assistant";
 
 const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL ?? "https://wyzen-ai-server.onrender.com").replace(/\/$/, "");
 
