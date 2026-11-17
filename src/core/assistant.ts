@@ -79,26 +79,46 @@ export function planCommand(raw: string): CommandResult {
  * phrases. Ambiguous requests are deliberately left untouched for conversation.
  */
 export function normalizeNaturalCommand(raw: string): string {
-  const value = raw.trim().replace(/\\s+/g, " ");
+  const value = raw.trim().replace(/\s+/g, " ");
+  let match: RegExpMatchArray | null;
 
-  let match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta) (?:uma )?tarefa(?: para| de| chamada)?\\s+(.+)$/i);
+  // Tasks: create, list, complete and remove.
+  match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta) (?:uma )?tarefa(?: para| de| chamada)?\s+(.+)$/i);
   if (match) return "cria tarefa " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:marca|assinala) (?:a )?tarefa (.+?) como (?:concluída|concluida|feita|terminada)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:marca|assinala|dá como) (?:a )?tarefa (.+?) como (?:concluída|concluida|feita|terminada)$/i);
   if (match) return "conclui tarefa " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:mostra|lista|quais são|quais sao) (?:as )?(?:minhas )?tarefas$/i);
-  if (match) return "lista tarefas";
+  match = value.match(/^(?:wyzen[, ]+)?(?:termina|conclui|finaliza) (?:a )?tarefa (.+)$/i);
+  if (match) return "conclui tarefa " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:apaga|elimina|remove) (?:a )?tarefa (.+)$/i);
+  if (match) return "apaga tarefa " + match[1].trim();
+  if (/^(?:wyzen[, ]+)?(?:mostra|lista|consulta|quais são|quais sao) (?:as )?(?:minhas )?tarefas$/i.test(value) ||
+      /^(?:wyzen[, ]+)?o que tenho para fazer$/i.test(value)) return "lista tarefas";
 
-  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) (?:que\\s+)?(.+)$/i);
+  // Personal memory.
+  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) (?:que\s+)?(.+)$/i);
   if (match) return "guarda na memória " + match[1].trim();
   match = value.match(/^(?:wyzen[, ]+)?(?:o que sabes|o que te lembras) sobre (.+)$/i);
   if (match) return "o que sabes sobre " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:esquece|apaga da memória|remove da memória) (.+)$/i);
+  if (match) return "esquece " + match[1].trim();
+  if (/^(?:wyzen[, ]+)?(?:mostra|consulta|abre) (?:a )?memória$/i.test(value)) return "consulta a memória";
 
-  match = value.match(/^(?:wyzen[, ]+)?(?:abre|abres|inicia|inicias) (?:a |o )?(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i);
+  // App launch and contacts.
+  match = value.match(/^(?:wyzen[, ]+)?(?:abre|abres|inicia|inicias|entra no|entra na) (?:a |o )?(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i);
   if (match) return "abre " + match[1];
-
-  match = value.match(/^(?:wyzen[, ]+)?(?:procura|encontra|pesquisa) (?:o contacto|a pessoa|contacto chamado|contacto) (.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:procura|encontra|pesquisa|localiza) (?:o contacto|a pessoa|contacto chamado|contacto) (.+)$/i);
   if (match) return "procura contacto " + match[1].trim();
 
-  // Keep conversational, uncertain or unsupported requests unchanged.
+  // Calls and SMS are still routed through the existing confirmation flow.
+  match = value.match(/^(?:wyzen[, ]+)?(?:faz uma chamada|faz chamada|telefona|liga) (?:para )?(.+)$/i);
+  if (match) return "liga para " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:envia|manda|prepara) (?:um )?(?:sms|mensagem) (?:para )?(.+?)\s*[:;,]\s*(.+)$/i);
+  if (match) return "sms para " + match[1].trim() + ": " + match[2].trim();
+
+  // Reminder phrasing stays compatible with the current reminder parser.
+  match = value.match(/^(?:wyzen[, ]+)?(?:cria|marca|agenda) (?:um )?lembrete (?:para|de)?\s*(.+)$/i);
+  if (match && /\b(?:às|as)\s+\d{1,2}[:h]\d{2}\b/i.test(match[1])) return "lembra-me de " + match[1].trim();
+
+  // Conversation remains untouched whenever the intention is not clear.
   return value;
 }
