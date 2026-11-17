@@ -48,3 +48,20 @@ export async function memoryContext(): Promise<string> {
   const items = await readAll();
   return items.slice(0, 12).map(item => "- " + item.text).join(String.fromCharCode(10));
 }
+
+
+export type DailyInteraction = { id: string; kind: "conversation" | "advice" | "summary"; userText: string; assistantText: string; createdAt: string };
+const HISTORY_KEY = "wyzen.daily.history.v1";
+async function readHistory(): Promise<DailyInteraction[]> {
+  try { const raw = await AsyncStorage.getItem(HISTORY_KEY); if (!raw) return []; const parsed = JSON.parse(raw) as DailyInteraction[]; return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+}
+export async function recordInteraction(userText: string, assistantText: string, kind: DailyInteraction["kind"] = "conversation"): Promise<void> {
+  const user = userText.trim(); const answer = assistantText.trim(); if (!user || !answer) return;
+  const history = await readHistory();
+  history.unshift({ id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8), kind, userText: user, assistantText: answer, createdAt: new Date().toISOString() });
+  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 500)));
+}
+export async function dailyInteractions(): Promise<DailyInteraction[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  return (await readHistory()).filter(item => item.createdAt.slice(0, 10) === today).slice(0, 30);
+}
