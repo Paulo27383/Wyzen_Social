@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert, Animated, AppState, Easing, Keyboard, StatusBar, StyleSheet, Text,
-  TextInput, TouchableWithoutFeedback, View
+  TextInput, TouchableWithoutFeedback, Pressable, View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
@@ -385,7 +385,7 @@ export default function App() {
                 onSubmitEditing={sendTypedCommand} returnKeyType="send"
                 placeholder="Ou escreve um comando..." placeholderTextColor="#68718A"
                 style={styles.commandInput} multiline />
-              <Text onPress={sendTypedCommand} style={styles.send}>ENVIAR</Text>
+              <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.sendButton, pressed && styles.sendPressed]}><Text style={styles.send}>ENVIAR</Text></Pressable>
             </View>
           )}
           <Text style={styles.footer}>ASSISTENTE PESSOAL • SESSÃO PRIVADA</Text>
@@ -419,6 +419,8 @@ const styles = StyleSheet.create({
   answer: { color: "#E0E8F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
   composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#26313D", paddingVertical: 12, gap: 12 },
   commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
-  send: { color: "#00D5FF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  sendButton: { minWidth: 92, height: 48, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)", alignItems: "center", justifyContent: "center" },
+  sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
+  send: { color: "#00D5FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
   footer: { color: "#687487", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
