@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert, Animated, Easing, Keyboard, StatusBar, StyleSheet, Text,
+  Alert, Animated, AppState, Easing, Keyboard, StatusBar, StyleSheet, Text,
   TextInput, TouchableWithoutFeedback, View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,7 +10,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
-import { askWyzen } from "./src/core/wyzenClient";
+import { askWyzen } from "./src/core/wyzenClient";\nimport { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
@@ -26,7 +26,7 @@ export default function App() {
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("A iniciar o núcleo WYZEN");
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [listening, setListening] = useState(false);\n  const [continuousEnabled, setContinuousEnabled] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const pulse = useRef(new Animated.Value(1)).current;
@@ -165,7 +165,7 @@ export default function App() {
       setEnrollingVoice(phase === "enroll");
       setListening(true);
       setStatus(phase === "enroll" ? "A registar a tua frase de ativação" : "A ouvir");
-      ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
+      ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: phase === "ready" && continuousEnabled });
     } catch {
       setListening(false);
       setEnrollingVoice(false);
@@ -173,7 +173,7 @@ export default function App() {
     }
   };
 
-  const sendTypedCommand = () => {
+  useEffect(() => {\n    const subscription = AppState.addEventListener("change", state => {\n      if (state !== "active" && continuousEnabled) {\n        try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }\n        setListening(false);\n        setStatus("Voz pausada pelo Android em segundo plano");\n      }\n    });\n    return () => subscription.remove();\n  }, [continuousEnabled]);\n\n  const sendTypedCommand = () => {
     const value = command.trim();
     if (!value) return;
     Keyboard.dismiss();
