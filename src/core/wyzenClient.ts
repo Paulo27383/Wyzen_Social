@@ -23,7 +23,7 @@ function localReply(command: string, reason?: string): AssistantReply {
 
 export async function askWyzen(command: string): Promise<AssistantReply> {
   const localIntent = classifyLocalIntent(command);
-  if (["creator", "greeting", "time", "date", "help"].includes(localIntent)) return localReply(command);
+  if (["creator", "profile", "greeting", "time", "date", "help"].includes(localIntent)) return localReply(command);
   if (!SERVER_URL) return localReply(command, "servidor não configurado.");
   try {
     const controller = new AbortController();
