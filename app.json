@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.wyzen.ai",
@@ -28,6 +29,7 @@
           "speechRecognitionPermission": "WYZEN AI usa reconhecimento de voz para compreender os teus comandos."
         }
       ],
+      ["llama.rn", { "enableOpenCL": false, "forceCxx20": true }],
       "expo-contacts",
       "expo-calendar",
       "expo-notifications"
