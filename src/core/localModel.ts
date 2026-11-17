@@ -9,6 +9,8 @@ const MODEL_URL =
 
 let context: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
+let activeGenerations = 0;
+let unloadRequested = false;
 
 export type LocalModelStatus = {
   available: boolean;
@@ -69,7 +71,7 @@ async function loadModel(): Promise<LlamaContext> {
     const loaded = await initLlama({
       model: MODEL_PATH,
       n_ctx: 1024,
-      n_batch: 64,
+      n_batch: 32,
       n_threads: 2,
       n_gpu_layers: 0,
       use_mmap: true,
@@ -91,6 +93,9 @@ export async function generateLocalResponse(
   memory = ""
 ): Promise<string> {
   const model = await loadModel();
+  activeGenerations += 1;
+  unloadRequested = false;
+  try {
   const system = [
     "És a WYZEN, uma assistente pessoal que responde em português claro.",
     "Compreende o objetivo do utilizador. Se não souberes executar uma ação, explica isso sem fingir que a executaste.",
@@ -109,9 +114,26 @@ export async function generateLocalResponse(
   });
 
   return result.text.trim();
+  } finally {
+    activeGenerations = Math.max(0, activeGenerations - 1);
+    if (activeGenerations === 0 && unloadRequested) {
+      const current = context;
+      context = null;
+      unloadRequested = false;
+      if (current) await current.release();
+    }
+  }
 }
 
 export async function unloadLocalModel(): Promise<void> {
+  // If generation is in progress, defer native release until it finishes.
+  if (activeGenerations > 0) {
+    unloadRequested = true;
+    return;
+  }
+  if (loading) {
+    try { await loading; } catch { return; }
+  }
   if (!context) return;
   const current = context;
   context = null;
