@@ -69,6 +69,18 @@ Próximas etapas: validar a API, adicionar autenticação de utilizadores, melho
 - As integrações usarão APIs oficiais/OAuth quando disponíveis, permissões mínimas e revogáveis. Capacidades variam por plataforma, tipo de conta e aprovação.
 - Ações com impacto externo (enviar, publicar, apagar, alterar definições ou fazer compras) exigem confirmação explícita.
 
+## Centro de Controlo e voz
+
+O Centro de Controlo inicial está disponível por comandos de voz ou texto:
+- `centro de controlo`: apresenta os comandos e limites disponíveis.
+- `abre WhatsApp/Facebook/Instagram/TikTok/Gmail/Drive/Calendar/Maps/Google`: tenta abrir a aplicação instalada e usa o endereço oficial como alternativa.
+- `autoriza microfone/contactos/calendário/notificações`: solicita a permissão correspondente ao Android.
+- `abre definições`: abre as definições de permissões da WYZEN.
+
+A abertura de uma aplicação não equivale a acesso à conta nem permite ler ou alterar o seu conteúdo. Para operações dentro de WhatsApp, Meta, TikTok e Google são necessários os respetivos fluxos oficiais de OAuth/API, com permissões e aprovações aplicáveis.
+
+A voz contínua pode ser ativada com `ativa voz contínua` e desligada com `desativa voz contínua`. Nesta fase, a escuta contínua funciona apenas enquanto a WYZEN está aberta e em primeiro plano. Ao passar para segundo plano, a escuta é parada de propósito. Palavra de despertar permanente e operação em segundo plano exigem um serviço nativo Android em primeiro plano, notificação persistente, controlos de privacidade e testes de bateria; ainda não estão implementados. A frase inicial de configuração continua a ser verificação de texto reconhecido, não biometria vocal.
+
 ## Limites de integração
 
 A lista de integrações é o objetivo do produto, não uma declaração de que todas as operações já estão disponíveis. WhatsApp, Meta, TikTok e Google têm regras, permissões, revisões e limitações próprias. A implementação deverá apresentar claramente o que cada conta permite fazer. O reconhecimento de voz, isoladamente, não será tratado como autenticação infalível; deverá ser combinado com mecanismos seguros do Android.
