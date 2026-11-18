@@ -94,13 +94,7 @@ def classify(text: str) -> str:
     return "conversation"
 
 
-def answer_for(intent: str, message: str, context) -> str:
-    value = normalize(message)
-    last_user = context[-1][0] if context else ""
-    last_answer = context[-1][1] if context else ""
-    memories = []
-    memory_hint = ""
-
+def answer_for(intent: str, message: str) -> str:
     if intent == "greeting":
         return "Olá! Sou a WYZEN. Estou pronta para conversar, compreender o que pretendes e ajudar-te a organizar ideias ou tarefas. O que vamos tratar?"
     if intent == "thanks":
@@ -117,7 +111,7 @@ def answer_for(intent: str, message: str, context) -> str:
     if intent == "time":
         return "A hora registada pelo servidor é " + datetime.now().astimezone().strftime("%H:%M") + ". Para a hora exata do teu telefone, a aplicação consulta o relógio local."
     if intent == "planning":
-        return "Vamos transformar isso num plano verificável. Vou separar o resultado pretendido, as tarefas, a ordem de prioridade, os recursos necessários e o prazo. Qual é o resultado final que queres alcançar?" + memory_hint
+        return "Vamos transformar isso num plano verificável. Vou separar o resultado pretendido, as tarefas, a ordem de prioridade, os recursos necessários e o prazo. Qual é o resultado final que queres alcançar?"
     if intent == "learning":
         return "Posso explicar o assunto, apresentar um exemplo e depois propor uma pequena verificação para confirmar a compreensão. Qual é o tema ou conceito que queres estudar?"
     if intent == "search":
@@ -125,30 +119,19 @@ def answer_for(intent: str, message: str, context) -> str:
     if intent == "translation":
         return "Envia o texto completo e indica o idioma de destino. Vou preservar o sentido e assinalar expressões ambíguas."
     if intent == "opinion":
-        return "Vou avaliar a questão separando factos, pressupostos, vantagens, riscos e consequências. Qual é a situação concreta que queres analisar?" + memory_hint
+        return "Vou avaliar a questão separando factos, pressupostos, vantagens, riscos e consequências. Qual é a situação concreta que queres analisar?"
     if intent == "comparison":
         return "Para comparar corretamente, vou usar os mesmos critérios para cada opção: objetivo, vantagens, limitações, custo ou esforço e riscos. Quais são as opções que queres comparar?"
     if intent == "summary":
-        if last_user and last_answer:
-            return "Resumo do último ponto da conversa: pediste «" + last_user[:240] + "» e respondi «" + last_answer[:500] + "». Se enviares o texto ou indicares o tema completo, preparo um resumo mais abrangente."
         return "Envia o texto, documento ou tema que queres resumir e digo-te os pontos essenciais, sem acrescentar informação que não esteja na fonte."
     if intent == "creative":
-        return "Posso preparar esse conteúdo com uma estrutura e um tom adequados. Diz-me o destinatário ou público e o objetivo da mensagem." + memory_hint
+        return "Posso preparar esse conteúdo com uma estrutura e um tom adequados. Diz-me o destinatário ou público e o objetivo da mensagem."
     if intent == "coding":
         return "Posso ajudar a analisar a lógica, localizar erros e propor alterações. Partilha o trecho de código, a mensagem de erro e o comportamento que esperavas."
     if intent == "problem_solving":
         return "Vamos decompor o problema: o que aconteceu, qual era o resultado esperado, o que já tentaste e qual é a principal limitação? Com esses dados posso propor uma solução verificável."
     if intent == "clarification":
-        return "Claro. A minha resposta anterior foi: «" + (last_answer[:850] if last_answer else "ainda não existe uma resposta anterior nesta conversa") + "». Indica a parte que ficou pouco clara e reformulo-a."
-    if intent == "followup" and last_user:
-        return "Estou a acompanhar o assunto anterior: «" + last_user[:220] + "». A última resposta foi: «" + last_answer[:420] + "». Queres aprofundar, corrigir ou avançar para uma decisão?" + memory_hint
-    if memories:
-        return ("Percebo o pedido: «" + message[:500] + "». Ainda não tenho dados suficientes para dar uma resposta segura. "
-                "Posso usar estas notas que guardaste como contexto: " + "; ".join(memories[:4]) +
-                ". Que resultado concreto esperas obter?")
-    if context:
-        return ("Quero responder de forma útil, mas ainda não tenho conhecimento suficiente para concluir apenas com esta mensagem: «" +
-                message[:500] + "». Posso relacioná-la com o tema anterior ou analisar um exemplo concreto. O que é mais importante neste pedido?")
+        return "Ainda não existe uma resposta anterior disponível no servidor público. Indica a parte que ficou pouco clara e reformulo-a."
     return ("Recebi o teu pedido: «" + message[:500] + "». O meu motor próprio ainda está a evoluir e não vou inventar uma resposta quando não tenho base suficiente. "
             "Dá-me um pouco mais de contexto ou um exemplo do resultado que esperas.")
 
@@ -175,7 +158,7 @@ def health():
 def chat(payload: ChatInput):
     # Stateless response: no client-supplied identity, no server history, no personal memory.
     intent = classify(payload.message)
-    answer = answer_for(intent, payload.message, [])
+    answer = answer_for(intent, payload.message)
     return {
         "answer": answer,
         "intent": intent,
