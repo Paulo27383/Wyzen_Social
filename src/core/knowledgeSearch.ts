@@ -209,7 +209,7 @@ async function requestWho(query: string): Promise<KnowledgeSource[]> {
       title: (item.IndicatorName || "Indicador de saúde") + " — " + country,
       extract: "Valor publicado: " + valueText + ". Período: " + year +
         ". Indicador OMS: " + item.IndicatorCode + ". A OMS pode publicar estimativas comparáveis que diferem das estatísticas nacionais; confirma a metodologia e o ano na página do indicador.",
-      url: "https://www.who.int/data/gho/data/indicators/indicator-details/GHO/" + encodeURIComponent(item.IndicatorCode || ""),
+      url: WHO_BASE + "/" + encodeURIComponent(item.IndicatorCode || ""),
       language: "en" as const,
       provider: "OMS" as const
     };
