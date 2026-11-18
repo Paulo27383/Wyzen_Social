@@ -15,11 +15,11 @@ import { buildDailyPlan, isDailyPlanRequest, resolveContextualFollowUp } from ".
 import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
-import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
+import { addTask, listTasks, completeTask, deleteTask, setTaskPriority } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
-import { getActiveMission, startMission, updateMissionStep, finishMission } from "./src/core/missionControl";
+import { getActiveMission, startMission, updateMissionStep, finishMission, resolveUncertainMissionStep } from "./src/core/missionControl";
 import { learnFromCorrection, getExplicitLearning, forgetExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative, reviewExecutionPlan } from "./src/core/cognitiveCore";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
@@ -161,6 +161,22 @@ export default function App() {
     if (!rawValue.trim()) return { status: "completed" };
     if (busy && !skipCompound) return { status: "failed", error: "A WYZEN já está a executar outro pedido." };
     const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
+    if (!skipCompound) {
+      const resolveMatch = missionCommand.match(/^(?:confirma|marca) etapa (\d+) da miss[aã]o como conclu[ií]da$/);
+      const retryMatch = missionCommand.match(/^autoriza repetir etapa (\d+) da miss[aã]o$/);
+      if (resolveMatch || retryMatch) {
+        const mission = await getActiveMission();
+        if (!mission) return { status: "failed", error: "Não existe missão guardada." };
+        const index = Number((resolveMatch || retryMatch)![1]) - 1;
+        const updated = await resolveUncertainMissionStep(mission.id, index, resolveMatch ? "completed" : "retry");
+        if (!updated) return { status: "failed", error: "Não encontrei a etapa indicada." };
+        const result = resolveMatch
+          ? "Etapa " + (index + 1) + " marcada como concluída após a tua confirmação."
+          : "Etapa " + (index + 1) + " autorizada para nova tentativa. Podes retomar a missão.";
+        setAnswer(result); setStatus("Missão atualizada"); speakWyzen(result, { language: "pt-PT" });
+        return { status: "completed" };
+      }
+    }
     if (!skipCompound && /^(?:estado|progresso) (?:da )?miss[aã]o$/.test(missionCommand)) {
       const mission = await getActiveMission();
       if (!mission) {
@@ -188,7 +204,17 @@ export default function App() {
       }
       const next = mission.steps[mission.nextStep];
       const needsReplayCheck = next && (next.status === "uncertain" || next.status === "running");
-      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
+      const uncertainIndex = mission.steps.findIndex(step => step.status === "uncertain");
+      if (uncertainIndex >= 0) {
+        const step = mission.steps[uncertainIndex];
+        const message = "A etapa " + (uncertainIndex + 1) + " ficou com resultado incerto: " + step.command +
+          ". Verifica primeiro o que aconteceu. Se já foi concluída, diz “confirma etapa " + (uncertainIndex + 1) +
+          " da missão como concluída”. Se não foi executada e queres tentar novamente, diz “autoriza repetir etapa " +
+          (uncertainIndex + 1) + " da missão”. Não vou repeti-la automaticamente.";
+        setAnswer(message); setStatus("Verificação necessária"); speakWyzen(message, { language: "pt-PT" });
+        return { status: "uncertain" };
+      }
+      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é "
         (mission.nextStep + 1) + ": " + (next?.command || "rever o resultado") +
         (needsReplayCheck
           ? ". ATENÇÃO: o resultado anterior não foi confirmado. Repetir pode duplicar a ação. Verifica primeiro se já aconteceu e só confirma se ainda não foi concluída."
@@ -395,7 +421,8 @@ export default function App() {
     }
     if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
       const tasks = await listTasks();
-      const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\n") : "Ainda não tens tarefas guardadas.";
+      const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") +
+        "[" + (task.priority === "high" ? "ALTA" : task.priority === "low" ? "BAIXA" : "NORMAL") + "] " + task.title).join("\n") : "Ainda não tens tarefas guardadas.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return { status: "completed" };
     }
