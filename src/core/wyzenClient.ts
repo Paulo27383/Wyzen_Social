@@ -2,6 +2,7 @@ import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
+import { answerOwnerProfile, answerWyzenIdentity, learnOwnerFact } from "./ownerProfile";
 
 export type AssistantReply = {
   answer: string;
@@ -84,6 +85,20 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
 
   const intent = classifyLocalIntent(cleanCommand);
   if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+  if (intent === "profile") {
+    return { answer: await answerOwnerProfile(cleanCommand), intent, engine: "wyzen-owner-profile", modelRequired: false };
+  }
+  if (intent === "wyzen_identity") {
+    return { answer: answerWyzenIdentity(cleanCommand), intent, engine: "wyzen-personality-core", modelRequired: false };
+  }
+  if (await learnOwnerFact(cleanCommand)) {
+    return {
+      answer: "Está bem, Podolsky. Guardei essa informação no teu perfil pessoal cifrado e vou usá-la quando for relevante.",
+      intent: "profile_update",
+      engine: "wyzen-owner-profile",
+      modelRequired: false
+    };
+  }
 
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
