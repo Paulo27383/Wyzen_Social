@@ -417,21 +417,43 @@ export default function App() {
   };
 
   useEffect(() => {
+    let disposed = false;
     const subscription = AppState.addEventListener("change", state => {
       if (state !== "active") {
         if (continuousEnabled) {
-          try { ExpoSpeechRecognitionModule.stop(); } catch { /* ignore */ }
+          // O serviço nativo mantém a palavra de ativação enquanto a app está em segundo plano.
+          // O reconhecimento de comandos em português só começa quando a app está visível.
+          try { ExpoSpeechRecognitionModule.stop(); } catch { /* reconhecimento já parado */ }
           setListening(false);
-          setStatus("Voz pausada pelo Android em segundo plano");
+          setStatus("A palavra de ativação continua disponível; os comandos serão ouvidos ao abrir a WYZEN.");
         }
-        // Release native model memory when the app is backgrounded.
-        // If a reply is being generated, localModel defers release until it finishes.
+        // Libertar memória do LLM ao sair do primeiro plano.
         void unloadLocalModel().catch(() => {
-          // The next request can retry loading the model if release fails.
+          // O próximo pedido pode voltar a carregar o modelo.
+        });
+        return;
+      }
+
+      // Se o serviço tiver terminado após detetar a palavra enquanto a app estava
+      // suspensa, voltar a iniciá-lo quando o utilizador regressar.
+      if (continuousEnabled) {
+        startWyzenWakeWord().then(() => {
+          if (!disposed) {
+            setListening(true);
+            setStatus("WYZEN pronta — diz “Wyzen” para ativar");
+          }
+        }).catch(error => {
+          if (!disposed) {
+            setListening(false);
+            setStatus(error instanceof Error ? error.message : "Não foi possível retomar a ativação por voz.");
+          }
         });
       }
     });
-    return () => subscription.remove();
+    return () => {
+      disposed = true;
+      subscription.remove();
+    };
   }, [continuousEnabled]);
 
   const installLocalModel = () => {
