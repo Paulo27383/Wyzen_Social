@@ -6,6 +6,9 @@ export type MissionStep = {
   command: string;
   status: "pending" | "running" | "completed" | "failed" | "uncertain";
   error?: string;
+  attempts?: number;
+  startedAt?: string;
+  finishedAt?: string;
 };
 
 export type MissionRecord = {
@@ -77,7 +80,16 @@ export async function updateMissionStep(
   if ((status === "failed" || status === "uncertain") && current !== "running" && current !== status) {
     throw new Error("Só é possível registar falha ou incerteza numa etapa em execução.");
   }
-  mission.steps[index] = { command: mission.steps[index].command, status, ...(error ? { error: error.slice(0, 300) } : {}) };
+  const now = new Date().toISOString();
+  const previous = mission.steps[index];
+  mission.steps[index] = {
+    command: previous.command,
+    status,
+    attempts: (previous.attempts || 0) + (status === "running" ? 1 : 0),
+    ...(status === "running" ? { startedAt: now } : previous.startedAt ? { startedAt: previous.startedAt } : {}),
+    ...(["completed", "failed", "uncertain"].includes(status) ? { finishedAt: now } : {}),
+    ...(error ? { error: error.slice(0, 300) } : {})
+  };
   mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
   if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
   mission.status = status === "failed" || status === "uncertain" ? "interrupted" : "active";
