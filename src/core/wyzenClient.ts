@@ -1,5 +1,6 @@
 import { classifyLocalIntent, planCommand } from "./assistant";
-import { memoryContext, recentInteractions } from "./memory";
+import { recentInteractions } from "./memory";
+import { retrieveLocalKnowledge } from "./rag";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
 import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";
@@ -121,7 +122,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
   try {
-    const [savedMemories, history, owner] = await Promise.all([memoryContext(), recentInteractions(7), getOwnerProfile()]);
+    const [retrieved, history, owner] = await Promise.all([retrieveLocalKnowledge(cleanCommand), recentInteractions(7), getOwnerProfile()]);
     const ownerFacts = [
       "Perfil do proprietário da WYZEN: " + owner.displayName + ".",
       "Relação: " + owner.role + ".",
@@ -137,7 +138,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       "Não afirmes que executaste algo sem confirmação real. Não inventes resultados, acesso, permissões ou capacidades.",
       "Pede confirmação antes de chamadas, mensagens, compras, publicações, eliminações ou outras ações sensíveis."
     ].join("\n");
-    memories = [operatingPrinciples, ownerFacts, savedMemories].filter(Boolean).join("\n");
+    memories = [operatingPrinciples, ownerFacts, retrieved.context].filter(Boolean).join("\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
