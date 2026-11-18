@@ -46,7 +46,10 @@ export async function getActiveMission(): Promise<MissionRecord | null> {
       step && typeof step.command === "string" && step.command.trim().length > 0 &&
       step.command.length <= 500 &&
       ["pending", "running", "completed", "failed", "uncertain"].includes(step.status) &&
-      (step.attempts === undefined || (Number.isInteger(step.attempts) && step.attempts >= 0))
+      (step.error === undefined || (typeof step.error === "string" && step.error.length <= 300)) &&
+      (step.attempts === undefined || (Number.isInteger(step.attempts) && step.attempts >= 0)) &&
+      (step.startedAt === undefined || (typeof step.startedAt === "string" && !Number.isNaN(Date.parse(step.startedAt)))) &&
+      (step.finishedAt === undefined || (typeof step.finishedAt === "string" && !Number.isNaN(Date.parse(step.finishedAt))))
     ) &&
     Number.isInteger(value.nextStep) && value.nextStep >= 0 && value.nextStep <= value.steps.length &&
     ["active", "completed", "interrupted"].includes(value.status) &&
@@ -54,6 +57,9 @@ export async function getActiveMission(): Promise<MissionRecord | null> {
     typeof value.updatedAt === "string" && !Number.isNaN(Date.parse(value.updatedAt));
   if (!valid) {
     throw new Error("O progresso guardado da missão tem dados inválidos. Não vou apagá-lo nem iniciar outra missão por cima.");
+  }
+  if (new Set(value.steps.map(step => step.command.trim().toLocaleLowerCase("pt-PT"))).size !== value.steps.length) {
+    throw new Error("A missão guardada contém etapas repetidas. Preservei o progresso para revisão, sem executar comandos duplicados.");
   }
   const interruptedIndex = value.steps.findIndex((step: MissionStep) => step.status === "running");
   if (interruptedIndex >= 0) {
