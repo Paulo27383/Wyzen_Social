@@ -17,7 +17,6 @@ import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyIntera
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
-import { addWakeWordListener, startWyzenWakeWord, stopWyzenWakeWord } from "./src/native/wyzenWakeWord";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -39,8 +38,6 @@ export default function App() {
   const [status, setStatus] = useState("A iniciar o núcleo WYZEN");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
-  const [continuousEnabled, setContinuousEnabled] = useState(false);
-  const [awaitingCommand, setAwaitingCommand] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const [modelReady, setModelReady] = useState(false);
@@ -81,21 +78,6 @@ export default function App() {
     return () => animation.stop();
   }, [pulse]);
 
-  useEffect(() => {
-    const subscription = addWakeWordListener(() => {
-      if (AppState.currentState !== "active") return;
-      setAwaitingCommand(true);
-      setStatus("Wyzen detetada. Estou a ouvir o teu comando em português.");
-      try {
-        ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
-        setListening(true);
-      } catch {
-        setStatus("Wyzen detetada, mas não foi possível iniciar o reconhecimento em português.");
-      }
-    });
-    return () => subscription.remove();
-  }, []);
-
   useSpeechRecognitionEvent("result", event => {
     const transcript = event.results?.[0]?.transcript?.trim();
     if (!transcript) return;
@@ -121,51 +103,14 @@ export default function App() {
         Alert.alert("WYZEN", "Não foi possível guardar a sessão neste dispositivo.");
       });
     } else {
-      // Em modo contínuo, só aceita comandos depois da palavra-chave Wyzen.
-      if (continuousEnabled) {
-        if (awaitingCommand) {
-          setAwaitingCommand(false);
-          setCommand(transcript);
-          setStatus("Comando recebido. A compreender...");
-          runCommand(transcript);
-          return;
-        }
-        const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const wakeMatch = normalized.match(/\bwyzen\b[,:;.!?\s-]*(.*)$/i);
-        if (!wakeMatch) {
-          setStatus("À escuta — diz Wyzen para me chamar");
-          return;
-        }
-        const commandAfterWake = wakeMatch[1].trim();
-        if (!commandAfterWake) {
-          setStatus("Estou aqui. Diz o que precisas.");
-          speakWyzen("Estou aqui. Diz o que precisas.", { language: "pt-PT" });
-          return;
-        }
-        setCommand(commandAfterWake);
-        setStatus("Palavra-chave reconhecida. A compreender...");
-        runCommand(commandAfterWake);
-      } else {
-        setCommand(transcript);
-        setStatus("A compreender o teu pedido");
-        runCommand(transcript);
-      }
+      setCommand(transcript);
+      setStatus("A compreender o teu pedido");
+      runCommand(transcript);
     }
   });
   useSpeechRecognitionEvent("end", () => {
     setListening(false);
     if (enrollingVoice) setStatus("Toca no W e repete a frase de ativação");
-    else if (continuousEnabled && phase === "ready" && AppState.currentState === "active") {
-      setTimeout(() => {
-        startWyzenWakeWord().then(() => {
-          setListening(true);
-          setStatus("WYZEN pronta — diz “Wyzen” para ativar");
-        }).catch(() => {
-          setListening(false);
-          setStatus("A ativação por palavra precisa de ser reiniciada");
-        });
-      }, 500);
-    }
   });
   useSpeechRecognitionEvent("error", event => {
     setListening(false);
@@ -213,30 +158,6 @@ export default function App() {
     }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
-    if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
-      setContinuousEnabled(true);
-      try {
-        await startWyzenWakeWord();
-        setStatus("WYZEN ativa — palavra de ativação em segundo plano");
-        setListening(true);
-        setAnswer("A WYZEN está a detetar “Wyzen” localmente. Quando reconhecer a palavra, passa a ouvir o teu comando em português.");
-      } catch (error) {
-        setContinuousEnabled(false);
-        const reason = error instanceof Error ? error.message : "Não foi possível iniciar o serviço de ativação.";
-        setStatus("Não foi possível ativar a escuta em segundo plano");
-        setAnswer(reason);
-      }
-      return;
-    }
-    if (/^(desativa|desativar|desliga) voz contínua$/.test(normalized)) {
-      setContinuousEnabled(false);
-      try { ExpoSpeechRecognitionModule.stop(); } catch { /* já parada */ }
-      try { await stopWyzenWakeWord(); } catch { /* serviço já parado */ }
-      setListening(false);
-      setStatus("Voz contínua desativada");
-      setAnswer("A escuta contínua foi desligada.");
-      return;
-    }
     const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
     if (addTaskMatch) {
       try {
@@ -408,7 +329,7 @@ export default function App() {
       setEnrollingVoice(phase === "enroll");
       setListening(true);
       setStatus(phase === "enroll" ? "A registar a tua frase de ativação" : "A ouvir");
-      ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: phase === "ready" && continuousEnabled });
+      ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
     } catch {
       setListening(false);
       setEnrollingVoice(false);
@@ -417,44 +338,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    let disposed = false;
     const subscription = AppState.addEventListener("change", state => {
       if (state !== "active") {
-        if (continuousEnabled) {
-          // O serviço nativo mantém a palavra de ativação enquanto a app está em segundo plano.
-          // O reconhecimento de comandos em português só começa quando a app está visível.
-          try { ExpoSpeechRecognitionModule.stop(); } catch { /* reconhecimento já parado */ }
-          setListening(false);
-          setStatus("A palavra de ativação continua disponível; os comandos serão ouvidos ao abrir a WYZEN.");
-        }
         // Libertar memória do LLM ao sair do primeiro plano.
         void unloadLocalModel().catch(() => {
           // O próximo pedido pode voltar a carregar o modelo.
         });
-        return;
-      }
-
-      // Se o serviço tiver terminado após detetar a palavra enquanto a app estava
-      // suspensa, voltar a iniciá-lo quando o utilizador regressar.
-      if (continuousEnabled) {
-        startWyzenWakeWord().then(() => {
-          if (!disposed) {
-            setListening(true);
-            setStatus("WYZEN pronta — diz “Wyzen” para ativar");
-          }
-        }).catch(error => {
-          if (!disposed) {
-            setListening(false);
-            setStatus(error instanceof Error ? error.message : "Não foi possível retomar a ativação por voz.");
-          }
-        });
       }
     });
-    return () => {
-      disposed = true;
-      subscription.remove();
-    };
-  }, [continuousEnabled]);
+    return () => subscription.remove();
+  }, []);
 
   const installLocalModel = () => {
     if (modelReady || modelBusy) return;
@@ -503,7 +396,6 @@ export default function App() {
       { text: "Tarefas", onPress: () => runQuickAction("mostra tarefas") },
       { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
       { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
-      { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
       { text: modelReady ? "Cérebro local instalado" : "Instalar cérebro local · 271 MB", onPress: () => { if (!modelReady) installLocalModel(); } },
       { text: "Fechar", style: "cancel" }
     ]);
