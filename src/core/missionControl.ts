@@ -37,6 +37,18 @@ export async function getActiveMission(): Promise<MissionRecord | null> {
     )) return null;
     if (!Number.isInteger(value.nextStep) || value.nextStep < 0 || value.nextStep > value.steps.length) return null;
     if (!["active", "completed", "interrupted"].includes(value.status)) return null;
+    const interruptedIndex = value.steps.findIndex((step: MissionStep) => step.status === "running");
+    if (interruptedIndex >= 0) {
+      value.steps[interruptedIndex] = {
+        ...value.steps[interruptedIndex],
+        status: "uncertain",
+        error: "A aplicação foi encerrada durante esta etapa. Confirma o resultado antes de continuar."
+      };
+      value.nextStep = interruptedIndex;
+      value.status = "interrupted";
+      value.updatedAt = new Date().toISOString();
+      await save(value);
+    }
     return value;
   } catch {
     return null;
@@ -47,6 +59,10 @@ export async function startMission(commands: string[]): Promise<MissionRecord> {
   if (!commands.length || commands.length > 12) throw new Error("A missão deve conter entre 1 e 12 etapas.");
   if (commands.some(command => typeof command !== "string" || !command.trim() || command.trim().length > 500)) {
     throw new Error("Cada etapa deve conter um comando válido com até 500 caracteres.");
+  }
+  const existing = await getActiveMission();
+  if (existing && existing.status !== "completed") {
+    throw new Error("Já existe uma missão por concluir. Retoma-a ou resolve a etapa incerta antes de iniciar outra.");
   }
   const now = new Date().toISOString();
   const mission: MissionRecord = {
@@ -93,6 +109,31 @@ export async function updateMissionStep(
   mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
   if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
   mission.status = status === "failed" || status === "uncertain" ? "interrupted" : "active";
+  mission.updatedAt = new Date().toISOString();
+  await save(mission);
+  return mission;
+}
+
+/** Resolve an uncertain step only after the user has checked its real-world result. */
+export async function resolveUncertainMissionStep(
+  missionId: string,
+  index: number,
+  resolution: "completed" | "retry"
+): Promise<MissionRecord | null> {
+  const mission = await getActiveMission();
+  if (!mission || mission.id !== missionId || index < 0 || index >= mission.steps.length) return null;
+  if (mission.steps[index].status !== "uncertain") {
+    throw new Error("A etapa indicada não está marcada como incerta.");
+  }
+  mission.steps[index] = {
+    command: mission.steps[index].command,
+    status: resolution === "completed" ? "completed" : "pending",
+    attempts: mission.steps[index].attempts || 0,
+    ...(resolution === "completed" ? { finishedAt: new Date().toISOString() } : {})
+  };
+  mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
+  if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
+  mission.status = "active";
   mission.updatedAt = new Date().toISOString();
   await save(mission);
   return mission;
