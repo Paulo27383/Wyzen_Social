@@ -20,7 +20,7 @@ import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
 import { getActiveMission, startMission, updateMissionStep, finishMission } from "./src/core/missionControl";
-import { learnFromCorrection, getExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative, reviewExecutionPlan } from "./src/core/cognitiveCore";
+import { learnFromCorrection, getExplicitLearning, forgetExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative, reviewExecutionPlan } from "./src/core/cognitiveCore";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -289,6 +289,15 @@ export default function App() {
         ? "Aprendizagem confirmada por ti:\\n" + items.map((item, index) => (index + 1) + ". " + item.correction).join("\\n")
         : "Ainda não guardaste correções explícitas. Podes dizer: “Corrige a WYZEN: ...”.";
       setAnswer(result); setStatus("Aprendizagem consultada"); speakWyzen(result, { language: "pt-PT" });
+      return { status: "completed" };
+    }
+    const forgetLearningMatch = value.trim().match(/^(?:esquece|apaga) (?:a )?corre[cç][aã]o (.+)$/i);
+    if (forgetLearningMatch || /^(?:esquece toda a aprendizagem|apaga todas as corre[cç][oõ]es)$/i.test(value.trim())) {
+      const count = await forgetExplicitLearning(forgetLearningMatch?.[1] || "");
+      const result = count
+        ? "Removi " + count + " correção(ões) da aprendizagem explícita."
+        : "Não encontrei correções correspondentes.";
+      setAnswer(result); setStatus("Aprendizagem atualizada"); speakWyzen(result, { language: "pt-PT" });
       return { status: "completed" };
     }
     if (/^(?:avalia o teu desempenho|diagn[oó]stico do n[uú]cleo|estado interno da wyzen)$/i.test(value.trim())) {
