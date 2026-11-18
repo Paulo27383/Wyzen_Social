@@ -81,11 +81,17 @@ export async function searchKnowledge(rawQuery: string): Promise<KnowledgeSource
   const query = rawQuery.trim().slice(0, 240);
   if (!shouldSearchKnowledge(query)) return [];
 
-  const portuguese = await requestWiki(query, "pt");
+  const cleanedQuery = query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:pesquisa|pesquisar|procura(?: na internet)?|busca(?: na internet)?|investiga|faz uma pesquisa)(?:\\s+(?:sobre|por|na internet))?\\s+/i, "").trim() || query;
+  let portuguese: KnowledgeSource[] = [];
+  try {
+    portuguese = await requestWiki(cleanedQuery, "pt");
+  } catch {
+    // Se a Wikipédia em português estiver indisponível, tenta a versão inglesa.
+  }
   if (portuguese.length >= 2) return portuguese;
 
   try {
-    const english = await requestWiki(query, "en");
+    const english = await requestWiki(cleanedQuery, "en");
     const seen = new Set(portuguese.map(item => item.title.toLocaleLowerCase("en")));
     return [...portuguese, ...english.filter(item => !seen.has(item.title.toLocaleLowerCase("en")))]
       .slice(0, MAX_RESULTS);
