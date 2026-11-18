@@ -90,7 +90,7 @@ A lista de integrações é o objetivo do produto, não uma declaração de que 
 Implementado no código:
 - Interface central W, inicialização animada e sessão local persistida com SecureStore.
 - Entrada inicial por nome e frase falada (a frase é verificada pelo texto reconhecido; ainda não é biometria de voz).
-- Comandos por voz/texto encaminhados ao servidor próprio.
+- Comandos por voz/texto processados pelo modelo local quando instalado; o servidor próprio é usado como alternativa quando o modelo não está disponível.
 - Abrir marcador telefónico com número, sempre deixando a confirmação final da chamada ao utilizador.
 - Preparar SMS com destinatário e texto na aplicação de mensagens; o utilizador confirma o envio no Android.
 - Procurar um contacto pelo nome com permissão do Android.
