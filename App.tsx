@@ -42,6 +42,7 @@ export default function App() {
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const [modelReady, setModelReady] = useState(false);
+  const [modelDownloadMB, setModelDownloadMB] = useState(398);
   const [modelBusy, setModelBusy] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -60,6 +61,7 @@ export default function App() {
         const savedSession = await SecureStore.getItemAsync(SESSION_KEY);
         const modelStatus = await getLocalModelStatus();
         setModelReady(modelStatus.downloaded);
+        setModelDownloadMB(modelStatus.approximateDownloadMB);
         await new Promise(resolve => setTimeout(resolve, 1300));
         if (savedProfile && savedSession === "active") {
           const parsed = JSON.parse(savedProfile) as Profile;
@@ -403,7 +405,7 @@ export default function App() {
     if (modelReady || modelBusy) return;
     Alert.alert(
       "Instalar cérebro local",
-      "A WYZEN vai descarregar cerca de 271 MB uma única vez. Recomenda-se Wi-Fi e espaço livre no telemóvel. Queres continuar?",
+      "A WYZEN vai descarregar cerca de ${modelDownloadMB} MB uma única vez. Recomenda-se Wi-Fi e espaço livre no telemóvel. Queres continuar?",
       [
         { text: "Agora não", style: "cancel" },
         { text: "Descarregar", onPress: async () => {
@@ -447,7 +449,7 @@ export default function App() {
       { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
       { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
       { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
-      { text: modelReady ? "Cérebro local instalado" : "Instalar cérebro local · 271 MB", onPress: () => { if (!modelReady) installLocalModel(); } },
+      { text: modelReady ? "Cérebro local instalado" : "Instalar cérebro local · ${modelDownloadMB} MB", onPress: () => { if (!modelReady) installLocalModel(); } },
       { text: "Fechar", style: "cancel" }
     ]);
   };
