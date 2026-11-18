@@ -59,8 +59,9 @@ export async function updateMissionStep(
   const mission = await getActiveMission();
   if (!mission || mission.id !== missionId || index < 0 || index >= mission.steps.length) return null;
   mission.steps[index] = { command: mission.steps[index].command, status, ...(error ? { error } : {}) };
-  if (status === "completed") mission.nextStep = Math.max(mission.nextStep, index + 1);
-  mission.status = status === "failed" ? "interrupted" : mission.status;
+  mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
+  if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
+  mission.status = status === "failed" ? "interrupted" : "active";
   mission.updatedAt = new Date().toISOString();
   await save(mission);
   return mission;
@@ -69,6 +70,9 @@ export async function updateMissionStep(
 export async function finishMission(missionId: string): Promise<MissionRecord | null> {
   const mission = await getActiveMission();
   if (!mission || mission.id !== missionId) return null;
+  if (!mission.steps.every(step => step.status === "completed")) {
+    throw new Error("A missão não pode terminar: ainda existem etapas por confirmar.");
+  }
   mission.nextStep = mission.steps.length;
   mission.status = "completed";
   mission.updatedAt = new Date().toISOString();
