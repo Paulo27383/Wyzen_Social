@@ -41,7 +41,7 @@ function normalize(raw: string): string {
 function shouldSearchKnowledge(raw: string): boolean {
   const value = normalize(raw);
   if (!value || value.length < 8) return false;
-  const explicitSearch = /\b(pesquisa|pesquisar|procura na internet|procura fontes|busca na internet|consulta fontes|investiga|faz uma pesquisa)\b/.test(value);
+  const explicitSearch = /\b(pesquisa|pesquisar|pesquisa na web|procura na internet|procura na web|procura fontes|busca na internet|busca na web|consulta fontes|investiga|faz uma pesquisa)\b/.test(value);
   const changingFacts = /\b(atual|atualmente|hoje|agora|recente|recentes|ultimas noticias|populacao|eleicoes|presidente atual|primeiro ministro|resultado eleitoral|taxa de cambio|preco atual)\b/.test(value);
   const factualLookup = /^(?:o que e|quem e|quem foi|onde fica|quando foi|qual e a populacao|quantos habitantes|como funciona)\b/.test(value);
   const healthQuestion = /\b(saude|doenca|doencas|malaria|paludismo|tuberculose|vih|sida|hiv|vacina|vacinacao|mortalidade|mortalidade infantil|esperanca de vida|enfermagem|epidemia|surto)\b/.test(value);
@@ -247,7 +247,7 @@ async function requestWho(query: string): Promise<KnowledgeSource[]> {
 }
 
 function cleanQuery(query: string): string {
-  return query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:pesquisa|pesquisar|procura(?: na internet)?|busca(?: na internet)?|investiga|faz uma pesquisa)(?:\s+(?:sobre|por|na internet))?\s+/i, "").trim() || query;
+  return query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:faz uma pesquisa|pesquisar|pesquisa|procura|busca|investiga)(?:\s+(?:na internet|na web|fontes|sobre|por))?(?:\s+(?:sobre|por))?\s+/i, "").trim() || query;
 }
 
 /** Combina pesquisa geral com dados estruturados de fontes oficiais, quando a pergunta corresponde a um indicador. */
