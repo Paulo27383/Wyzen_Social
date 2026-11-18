@@ -199,8 +199,8 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       ? " O modelo local também não ficou disponível: " + localModelError
       : " O modelo generativo local ainda não foi instalado.";
     return addressReply({
-      answer: "Neste momento não consegui gerar uma resposta. " + serverError + localHint +
-        " Instala ou verifica o modelo local e tenta novamente.",
+      answer: "A ligação generativa está temporariamente indisponível. " + serverError + localHint +
+        " Ainda podemos avançar: envia uma pergunta mais específica, pede uma operação local (tarefas, memória ou aplicações Android) ou instala o modelo local para ativar respostas generativas no dispositivo.",
       intent,
       engine: "wyzen-offline-unavailable",
       modelRequired: true
