@@ -354,7 +354,7 @@ export default function App() {
       setContinuousEnabled(true);
       setStatus("Voz contínua ativa enquanto a WYZEN estiver aberta");
       try { ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true }); setListening(true); }
-      catch { setStatus("Não foi possível iniciar a voz contínua"); }
+      catch { setContinuousEnabled(false); setStatus("Não foi possível iniciar a voz contínua"); return { status: "failed", error: "O Android não iniciou a escuta contínua." }; }
       setAnswer("Modo de palavra-chave ativo. Diz “Wyzen” e depois o teu comando. A escuta funciona enquanto a aplicação estiver aberta e em primeiro plano; em segundo plano ainda é necessário integrar um serviço Android nativo.");
       return { status: "completed" };
     }
@@ -442,11 +442,12 @@ export default function App() {
         { text: "Cancelar", style: "cancel" },
         { text: "Apagar", style: "destructive", onPress: async () => {
           const count = await forgetWyzen("");
+          await recordCoreOutcome("gestão de memória", "success", count + " registos apagados após confirmação.");
           const result = "Apaguei toda a memória local (" + count + " registos).";
           setAnswer(result); setStatus("Memória apagada"); speakWyzen(result, { language: "pt-PT" });
         }}
       ]);
-      return { status: "completed" };
+      return { status: "uncertain" };
     }
     setBusy(true);
     setAnswer("");
@@ -539,6 +540,7 @@ export default function App() {
       await recordInteraction(value, reply.answer, kind);
       setStatus("Concluído — interação guardada");
       if (reply.answer) speakWyzen(reply.answer, { language: "pt-PT", rate: 0.95 });
+      return { status: "uncertain" };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro no motor WYZEN.";
       setAnswer(message);
