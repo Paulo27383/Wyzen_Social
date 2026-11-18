@@ -2,7 +2,7 @@ import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
-import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";
+import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";\nimport { buildKnowledgeContext, formatKnowledgeFallback, searchKnowledge } from "./knowledgeSearch";
 
 export type AssistantReply = {
   answer: string;
@@ -144,7 +144,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   try {
     const status = await getLocalModelStatus();
     if (status.downloaded) {
-      const answer = await generateLocalResponse(cleanCommand, memories, dialogue);
+      const answer = await generateLocalResponse(cleanCommand, memories, dialogue, buildKnowledgeContext(knowledgeSources));
       if (answer.trim()) {
         return addressReply({
           answer: answer.trim(),
