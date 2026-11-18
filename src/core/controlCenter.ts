@@ -58,7 +58,7 @@ const ANDROID_SETTINGS: Record<string, { action: string; label: string }> = {
 
 async function openAndroidSettings(section: string): Promise<string> {
   if (Platform.OS !== "android") throw new Error("Esta ação está disponível apenas no Android.");
-  const key = section.toLocaleLowerCase("pt-PT").trim();
+  const key = section.toLocaleLowerCase("pt-PT").trim().replace(/-/g, "");
   const setting = ANDROID_SETTINGS[key];
   if (!setting) throw new Error("Definição não reconhecida. Disponíveis: Wi-Fi, Bluetooth, localização, ecrã, som, bateria, aplicações e notificações.");
   await IntentLauncher.startActivityAsync(setting.action);
