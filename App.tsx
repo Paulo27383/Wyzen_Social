@@ -157,7 +157,7 @@ export default function App() {
     Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const runCommandInternal = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
+  const runCommandInternal = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed" | "uncertain"; error?: string }> => {
     if (!rawValue.trim()) return { status: "completed" };
     if (busy && !skipCompound) return { status: "failed", error: "A WYZEN já está a executar outro pedido." };
     const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
@@ -467,16 +467,18 @@ export default function App() {
           setStatus("A executar ação no Android");
           try {
             const result = await performPhoneAction(localAction);
+            await recordCoreOutcome("ação Android", localAction.type === "reminder" ? "success" : "uncertain", result);
             setAnswer(result);
             setStatus("Concluído");
             speakWyzen(result, { language: "pt-PT" });
           } catch (e) {
             const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
+            await recordCoreOutcome("ação Android", "failure", message);
             setAnswer(message);
             setStatus("Ação não concluída");
           } finally { setBusy(false); }
         });
-        return { status: "completed" };
+        return { status: "uncertain" };
       }
       const namedCall = value.trim().match(/^(?:liga|telefonar|chama)\s+para\s+([\p{L}][\p{L} .'-]{1,60})$/iu);
       const namedSms = value.trim().match(/^(?:sms|mensagem)\s+para\s+([\p{L}][\p{L} .'-]{1,60})\s*[:;,]\s*(.+)$/iu);
@@ -509,16 +511,18 @@ export default function App() {
           setStatus("A preparar ação para o contacto");
           try {
             const result = await performPhoneAction(action);
+            await recordCoreOutcome("ação de contacto", action.type === "reminder" ? "success" : "uncertain", result);
             setAnswer(result);
             setStatus("Concluído");
             speakWyzen(result, { language: "pt-PT" });
           } catch (e) {
             const message = e instanceof Error ? e.message : "Não foi possível executar a ação.";
+            await recordCoreOutcome("ação de contacto", "failure", message);
             setAnswer(message);
             setStatus("Ação não concluída");
           } finally { setBusy(false); }
         });
-        return { status: "completed" };
+        return { status: "uncertain" };
       }
       const contactMatch = value.trim().match(/^(?:procura|encontra|pesquisa) contacto (.+)$/i);
       if (contactMatch) {
@@ -555,8 +559,8 @@ export default function App() {
       try {
         await recordCoreOutcome(
           skipCompound ? "etapa de missão" : "execução de comando",
-          result.status === "completed" ? "success" : "failure",
-          result.status === "completed" ? normalized.slice(0, 180) : (result.error || "Comando não concluído").slice(0, 180)
+          result.status === "completed" ? "success" : result.status === "uncertain" ? "uncertain" : "failure",
+          result.status === "completed" ? normalized.slice(0, 180) : result.status === "uncertain" ? "Ação encaminhada para confirmação do utilizador/Android: " + normalized.slice(0, 140) : (result.error || "Comando não concluído").slice(0, 180)
         );
       } catch {
         // A falha do registo não altera o resultado real do comando.
