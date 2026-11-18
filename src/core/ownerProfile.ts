@@ -53,22 +53,22 @@ export async function updateOwnerProfile(
 export async function learnOwnerFact(statement: string): Promise<boolean> {
   const value = statement.trim();
   if (!value) return false;
-  let match = value.match(/\\btenho\\s+(\\d{1,3})\\s+anos\\b/i);
+  let match = value.match(/\btenho\s+(\d{1,3})\s+anos\b/i);
   if (match) {
     await updateOwnerProfile({ ageYears: Number(match[1]) });
     return true;
   }
-  match = value.match(/\\b(?:moro|vivo|resido)\\s+(?:em|no|na)\\s+(.{2,80})$/i);
+  match = value.match(/\b(?:moro|vivo|resido)\s+(?:em|no|na)\s+(.{2,80})$/i);
   if (match) {
     await updateOwnerProfile({ residence: match[1].trim().replace(/[.!?]+$/, "") });
     return true;
   }
-  match = value.match(/\\b(?:a minha|minha) mãe chama-se\\s+([\\p{L}][\\p{L} .'-]{1,60})$/iu);
+  match = value.match(/\b(?:a minha|minha) mãe chama-se\s+([\p{L}][\p{L} .'-]{1,60})$/iu);
   if (match) {
     await updateOwnerProfile({ motherName: match[1].trim() });
     return true;
   }
-  match = value.match(/\\b(?:podes chamar-me|chama-me|prefiro que me chames)\\s+([\\p{L}][\\p{L} .'-]{1,40})$/iu);
+  match = value.match(/\b(?:podes chamar-me|chama-me|prefiro que me chames)\s+([\p{L}][\p{L} .'-]{1,40})$/iu);
   if (match) {
     await updateOwnerProfile({ preferredAddress: match[1].trim(), displayName: match[1].trim() });
     return true;
@@ -78,20 +78,20 @@ export async function learnOwnerFact(statement: string): Promise<boolean> {
 
 export async function answerOwnerProfile(question: string): Promise<string> {
   const profile = await getOwnerProfile();
-  const value = question.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const value = question.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const name = profile.displayName || "Podolsky";
 
-  if (/\\b(?:quantos anos|qual a minha idade)\\b/.test(value)) {
+  if (/\b(?:quantos anos|qual a minha idade)\b/.test(value)) {
     return profile.ageYears === null
       ? "Podolsky, ainda não tenho a tua idade confirmada. Se me disseres, guardo-a no teu perfil."
       : `${name}, tenho registado que tens ${profile.ageYears} anos. Se isso mudou ou estiver errado, corrige-me e atualizo o teu perfil.`;
   }
-  if (/\\b(?:onde vivo|onde moro|onde resido|qual e a minha residencia)\\b/.test(value)) {
+  if (/\b(?:onde vivo|onde moro|onde resido|qual e a minha residencia)\b/.test(value)) {
     return profile.residence
       ? `${name}, tenho registado que vives em ${profile.residence}.`
       : `${name}, ainda não me disseste onde vives. Se quiseres, posso guardar essa informação.`;
   }
-  if (/\\b(?:minha mae|quem e a minha mae|nome da minha mae)\\b/.test(value)) {
+  if (/\b(?:minha mae|quem e a minha mae|nome da minha mae)\b/.test(value)) {
     return profile.motherName
       ? `${name}, tenho registado que a tua mãe se chama ${profile.motherName}.`
       : `${name}, ainda não tenho o nome da tua mãe guardado. Podes dizer-mo quando quiseres.`;
