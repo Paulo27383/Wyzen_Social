@@ -4,7 +4,7 @@ const KEY = "wyzen.mission.active.v1";
 
 export type MissionStep = {
   command: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "uncertain";
   error?: string;
 };
 
@@ -27,7 +27,13 @@ export async function getActiveMission(): Promise<MissionRecord | null> {
     const raw = await secureLocalStorage.getItem(KEY);
     if (!raw) return null;
     const value = JSON.parse(raw) as MissionRecord;
-    if (!value || !Array.isArray(value.steps) || !value.steps.length) return null;
+    if (!value || typeof value.id !== "string" || !Array.isArray(value.steps) || !value.steps.length || value.steps.length > 12) return null;
+    if (!value.steps.every((step: any) =>
+      step && typeof step.command === "string" &&
+      ["pending", "running", "completed", "failed", "uncertain"].includes(step.status)
+    )) return null;
+    if (!Number.isInteger(value.nextStep) || value.nextStep < 0 || value.nextStep > value.steps.length) return null;
+    if (!["active", "completed", "interrupted"].includes(value.status)) return null;
     return value;
   } catch {
     return null;
@@ -65,13 +71,13 @@ export async function updateMissionStep(
   if (status === "completed" && current !== "running" && current !== "completed") {
     throw new Error("A etapa só pode ser concluída depois de estar em execução.");
   }
-  if (status === "failed" && current !== "running" && current !== "failed") {
-    throw new Error("Só é possível registar falha numa etapa em execução.");
+  if ((status === "failed" || status === "uncertain") && current !== "running" && current !== status) {
+    throw new Error("Só é possível registar falha ou incerteza numa etapa em execução.");
   }
   mission.steps[index] = { command: mission.steps[index].command, status, ...(error ? { error: error.slice(0, 300) } : {}) };
   mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
   if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
-  mission.status = status === "failed" ? "interrupted" : "active";
+  mission.status = status === "failed" || status === "uncertain" ? "interrupted" : "active";
   mission.updatedAt = new Date().toISOString();
   await save(mission);
   return mission;
