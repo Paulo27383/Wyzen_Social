@@ -133,7 +133,7 @@ export type CompoundCommandPlan = {
 };
 
 /**
- * Só prepara sequências compostas de tarefas e memória.
+ * Prepara missões compostas entre pesquisa, tarefas e memória.
  * Ações externas/sensíveis ficam fora desta execução em cadeia.
  */
 export function planCompoundCommand(raw: string): CompoundCommandPlan {
@@ -151,16 +151,26 @@ export function planCompoundCommand(raw: string): CompoundCommandPlan {
   const isMemoryWrite = (value: string) =>
     /^(?:guarda na memória|memoriza|lembra-te que)\s+.+$/i.test(value);
   const isMemoryRead = (value: string) =>
-    /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\s+.+)?$/i.test(value);
+    /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\\s+.+)?$/i.test(value);
+  const isKnowledgeSearch = (value: string) =>
+    /^(?:pesquisa(?:r)?(?: na internet)?|procura na internet|busca na internet|investiga|faz uma pesquisa)(?:\\s+(?:sobre|por|na internet))?\\s+.+$/i.test(value);
 
+  // Uma missão pode cruzar o motor de pesquisa com operações locais.
   // Não interceptar frases em que "e" faz parte do título de uma tarefa.
-  const supported = normalized.every(value => isTask(value) || isMemoryWrite(value) || isMemoryRead(value));
+  const supported = normalized.every(value =>
+    isTask(value) || isMemoryWrite(value) || isMemoryRead(value) || isKnowledgeSearch(value)
+  );
   if (!supported) return { isCompound: false, steps: [], clarification: null, supported: false };
 
+  const domains = normalized.map(value =>
+    isKnowledgeSearch(value) ? "pesquisa" :
+    isTask(value) ? "tarefas" : "memória"
+  );
   return {
     isCompound: true,
     steps: normalized,
-    clarification: "Identifiquei " + normalized.length + " etapas: " +
+    clarification: "Preparei uma missão com " + normalized.length + " etapas (" +
+      domains.join(" → ") + "): " +
       normalized.map((step, index) => (index + 1) + ") " + step).join("; ") +
       ". Queres que execute todas por esta ordem?",
     supported: true
