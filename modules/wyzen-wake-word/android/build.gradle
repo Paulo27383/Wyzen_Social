@@ -15,13 +15,12 @@ android {
 repositories {
   google()
   mavenCentral()
-  maven { url 'https://jitpack.io' }
 }
 
 dependencies {
   implementation project(':expo-modules-core')
-  // Use the Android AAR directly. The aggregate Maven POM also pulls sherpa-onnx-jvm,
-  // whose classes duplicate those already packaged in the Android AAR.
-  implementation 'com.github.k2-fsa:sherpa-onnx:v2.0.1@aar'
+  // The official Android AAR is downloaded and checksum-verified by the APK workflow.
+  // Using the standalone AAR avoids JitPack's aggregate POM and duplicate JVM classes.
+  implementation files('libs/sherpa-onnx-2.0.1.aar')
   implementation 'org.apache.commons:commons-compress:1.27.1'
 }
