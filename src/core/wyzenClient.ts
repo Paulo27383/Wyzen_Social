@@ -2,7 +2,7 @@ import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
-import { answerOwnerProfile, answerWyzenIdentity, learnOwnerFact } from "./ownerProfile";
+import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";
 
 export type AssistantReply = {
   answer: string;
@@ -85,6 +85,10 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
 
   const intent = classifyLocalIntent(cleanCommand);
   if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+  if (intent === "greeting") {
+    const profile = await getOwnerProfile();
+    return { answer: `Olá, ${profile.preferredAddress || profile.displayName}! Estou aqui. O que vamos fazer hoje?`, intent, engine: "wyzen-personality-core", modelRequired: false };
+  }
   if (intent === "profile") {
     return { answer: await answerOwnerProfile(cleanCommand), intent, engine: "wyzen-owner-profile", modelRequired: false };
   }
