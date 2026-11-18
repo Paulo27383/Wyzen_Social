@@ -40,6 +40,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [continuousEnabled, setContinuousEnabled] = useState(false);
+  const [awaitingCommand, setAwaitingCommand] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
   const [modelReady, setModelReady] = useState(false);
@@ -83,6 +84,7 @@ export default function App() {
   useEffect(() => {
     const subscription = addWakeWordListener(() => {
       if (AppState.currentState !== "active") return;
+      setAwaitingCommand(true);
       setStatus("Wyzen detetada. Estou a ouvir o teu comando em português.");
       try {
         ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
@@ -121,6 +123,13 @@ export default function App() {
     } else {
       // Em modo contínuo, só aceita comandos depois da palavra-chave Wyzen.
       if (continuousEnabled) {
+        if (awaitingCommand) {
+          setAwaitingCommand(false);
+          setCommand(transcript);
+          setStatus("Comando recebido. A compreender...");
+          runCommand(transcript);
+          return;
+        }
         const normalized = transcript.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const wakeMatch = normalized.match(/\bwyzen\b[,:;.!?\s-]*(.*)$/i);
         if (!wakeMatch) {
