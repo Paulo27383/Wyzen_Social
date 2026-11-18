@@ -107,8 +107,17 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
   try {
-    const [savedMemories, history] = await Promise.all([memoryContext(), recentInteractions(7)]);
-    memories = savedMemories;
+    const [savedMemories, history, owner] = await Promise.all([memoryContext(), recentInteractions(7), getOwnerProfile()]);
+    const ownerFacts = [
+      "Perfil do proprietário da WYZEN: " + owner.displayName + ".",
+      "Relação: " + owner.role + ".",
+      "Forma de tratamento preferida: " + owner.preferredAddress + ".",
+      owner.ageYears === null ? "" : "Idade confirmada no perfil: " + owner.ageYears + " anos.",
+      owner.course ? "Formação: " + owner.course + "." : "",
+      owner.residence ? "Residência indicada: " + owner.residence + "." : "",
+      owner.motherName ? "Nome da mãe indicado: " + owner.motherName + "." : ""
+    ].filter(Boolean).join("\\n");
+    memories = [ownerFacts, savedMemories].filter(Boolean).join("\\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
