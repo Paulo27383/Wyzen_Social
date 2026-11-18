@@ -94,26 +94,25 @@ def classify(text: str) -> str:
     return "conversation"
 
 
-def answer_for(intent: str, message: str, context, memory_context: str = "") -> str:
+def answer_for(intent: str, message: str, context) -> str:
     value = normalize(message)
     last_user = context[-1][0] if context else ""
     last_answer = context[-1][1] if context else ""
-    memories = memory_notes(memory_context)
-    memory_hint = (" Vou também considerar as notas que guardaste: " +
-                   "; ".join(memories[:3]) + ".") if memories else ""
+    memories = []
+    memory_hint = ""
 
     if intent == "greeting":
         return "Olá! Sou a WYZEN. Estou pronta para conversar, compreender o que pretendes e ajudar-te a organizar ideias ou tarefas. O que vamos tratar?"
     if intent == "thanks":
         return "De nada. Continuo contigo. Podemos desenvolver a ideia, rever o resultado ou avançar para outra tarefa."
     if intent == "farewell":
-        return "Até já. A conversa fica guardada no meu histórico deste servidor para podermos retomar quando voltares."
+        return "Até já. O histórico desta conversa permanece no teu dispositivo, não no servidor público."
     if intent == "identity":
-        return "Sou a WYZEN, uma assistente pessoal com um motor conversacional desenvolvido para este projeto. Uso regras próprias de diálogo, contexto recente, memória fornecida pelo dispositivo e um classificador que pode ser treinado com exemplos. Não sou ainda um modelo generativo geral; quando não tiver conhecimento suficiente, devo dizê-lo."
+        return "Sou a WYZEN, uma assistente pessoal com um motor conversacional desenvolvido para este projeto. Uso regras próprias de diálogo e um classificador que pode ser treinado com exemplos. O histórico e a memória permanecem no dispositivo. Não sou ainda um modelo generativo geral; quando não tiver conhecimento suficiente, devo dizê-lo."
     if intent == "creator":
         return "Fui criada por Podolsky Wyzen P. O meu desenvolvimento é feito no projeto WYZEN AI."
     if intent == "capabilities":
-        return ("O meu núcleo atual consegue classificar intenções, acompanhar até oito turnos recentes, considerar notas de memória, responder a saudações, apoiar planeamento, aprendizagem, comparação, escrita, programação e resolução estruturada de problemas. "
+        return ("O meu núcleo atual consegue classificar intenções, responder a saudações, apoiar planeamento, aprendizagem, comparação, escrita, programação e resolução estruturada de problemas. "
                 "Ações Android continuam a ser executadas pelos módulos locais da aplicação e exigem permissões e confirmações apropriadas.")
     if intent == "time":
         return "A hora registada pelo servidor é " + datetime.now().astimezone().strftime("%H:%M") + ". Para a hora exata do teu telefone, a aplicação consulta o relógio local."
@@ -164,7 +163,7 @@ def health():
         "trained_model": MODEL_PATH.exists(),
         "external_models": False,
         "features": [
-            "native-intent-routing", "recent-turn-context", "device-memory-context",
+            "native-intent-routing", "stateless-public-chat",
             "dialogue-state", "clarification", "comparison", "planning",
             "learning", "creative-writing-routing", "coding-help-routing",
             "trainable-intent-classifier"
@@ -206,7 +205,7 @@ def add_training_example(example: TrainingExample, authorization: Optional[str] 
 
 @app.post("/v1/train/model")
 def train_model(authorization: Optional[str] = Header(default=None)):
-    if not ADMIN_TOKEN or authorization != f"Bearer {ADMIN_TOKEN}":
+    if not ADMIN_TOKEN or not hmac.compare_digest(authorization or "", f"Bearer {ADMIN_TOKEN}"):
         raise HTTPException(status_code=401, detail="Admin authentication required")
     connection = db()
     try:
