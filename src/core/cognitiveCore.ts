@@ -82,6 +82,7 @@ async function writeBounded<T>(key: string, items: T[], limit: number): Promise<
 export async function learnFromCorrection(correction: string): Promise<LearningRecord> {
   const clean = correction.trim();
   if (clean.length < 4) throw new Error("Explica a correção com um pouco mais de detalhe.");
+  if (clean.length > 600) throw new Error("A correção deve ter no máximo 600 caracteres para manter a memória clara e controlada.");
   const items = await readArray<LearningRecord>(LEARNING_KEY);
   const normalized = clean.toLocaleLowerCase("pt-PT");
   const existing = items.find(item => item.correction.trim().toLocaleLowerCase("pt-PT") === normalized);
