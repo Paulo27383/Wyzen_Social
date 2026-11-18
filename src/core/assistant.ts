@@ -154,16 +154,20 @@ export function planCompoundCommand(raw: string): CompoundCommandPlan {
     /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\\s+.+)?$/i.test(value);
   const isKnowledgeSearch = (value: string) =>
     /^(?:pesquisa(?:r)?(?: na internet)?|procura na internet|busca na internet|investiga|faz uma pesquisa)(?:\\s+(?:sobre|por|na internet))?\\s+.+$/i.test(value);
+  const isAndroidAppOpen = (value: string) =>
+    /^(?:abre|abrir|inicia|iniciar)\\s+(?:whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i.test(value);
 
-  // Uma missão pode cruzar o motor de pesquisa com operações locais.
-  // Não interceptar frases em que "e" faz parte do título de uma tarefa.
+  // Uma missão pode cruzar pesquisa, organização local e abertura de aplicações.
+  // Chamadas, SMS e ações destrutivas externas não entram na execução em cadeia.
   const supported = normalized.every(value =>
-    isTask(value) || isMemoryWrite(value) || isMemoryRead(value) || isKnowledgeSearch(value)
+    isTask(value) || isMemoryWrite(value) || isMemoryRead(value) ||
+    isKnowledgeSearch(value) || isAndroidAppOpen(value)
   );
   if (!supported) return { isCompound: false, steps: [], clarification: null, supported: false };
 
   const domains = normalized.map(value =>
     isKnowledgeSearch(value) ? "pesquisa" :
+    isAndroidAppOpen(value) ? "Android" :
     isTask(value) ? "tarefas" : "memória"
   );
   return {
