@@ -1,15 +1,15 @@
 # WYZEN AI
 
-Assistente pessoal Android com voz e texto, ligado a um servidor próprio e a um núcleo de inteligência treinável sem modelos pré-treinados.
+Assistente pessoal Android com voz e texto, com geração conversacional prioritariamente no próprio dispositivo e um servidor WYZEN de apoio.
 
 ## Arquitetura conversacional atual
 
 - **Android (Expo / React Native):** interface, microfone, reconhecimento de voz, leitura de respostas e comandos.
-- **Servidor próprio (Python / FastAPI):** API de conversa, memória SQLite e classificador de intenções.
-- **Aprendizagem própria inicial:** exemplos fornecidos por nós são guardados e usados para treinar um classificador TF-IDF + regressão logística a partir do zero.
-- **Sem modelos externos:** o servidor não chama OpenAI, ChatGPT ou APIs de modelos de terceiros.
+- **Modelo local (llama.rn):** quando instalado, o modelo GGUF SmolLM2 360M Instruct gera as respostas no Android, com histórico curto de conversa e notas de memória locais.
+- **Servidor próprio (Python / FastAPI):** alternativa de apoio com regras de diálogo, contexto SQLite e classificador de intenções treinável.
+- **Sem APIs de IA externas:** a aplicação não envia conversas para ChatGPT, OpenAI ou outros serviços de inferência. O ficheiro do modelo é descarregado do Hugging Face; os pesos base são de um modelo aberto de terceiros, não foram treinados de raiz pela WYZEN.
 
-**Limite importante:** esta primeira inteligência é um classificador de intenções com respostas estruturadas, não é ainda uma IA generativa nem raciocina como um LLM. O treino melhora o reconhecimento de intenções com exemplos próprios; não cria capacidades gerais de linguagem automaticamente.
+**Limite importante:** o modelo local é pequeno e pode falhar em raciocínio complexo, factos recentes ou português menos comum. O classificador do servidor não é um LLM. Esta arquitetura executa inferência local sem depender de APIs externas, mas ainda não representa um modelo fundacional treinado pela WYZEN.
 
 ## Servidor
 
@@ -41,7 +41,7 @@ npm run typecheck
 npx expo start
 ```
 
-A voz requer build nativa Android e permissões. O APK ainda não foi compilado ou testado num dispositivo físico.
+A geração local requer que o utilizador descarregue o modelo (cerca de 271 MB) e que o dispositivo tenha memória e capacidade de processamento suficientes. A voz requer build nativa Android e permissões. O APK ainda não foi compilado ou testado num dispositivo físico.
 
 ## Compilação Android
 
