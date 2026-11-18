@@ -115,7 +115,7 @@ def answer_for(intent: str, message: str) -> str:
     if intent == "learning":
         return "Posso explicar o assunto, apresentar um exemplo e depois propor uma pequena verificação para confirmar a compreensão. Qual é o tema ou conceito que queres estudar?"
     if intent == "search":
-        return "O meu servidor próprio ainda não tem acesso direto à pesquisa na Internet. Posso analisar informação que partilhares, organizar perguntas de pesquisa ou explicar o que já conheço, distinguindo o que não consigo confirmar."
+        return "Vou ajudar-te a chegar à informação por uma via disponível. A pesquisa direta ainda não está ativa neste motor, mas posso estruturar a investigação, analisar fontes ou textos que partilhares e separar factos confirmados de pontos por verificar."
     if intent == "translation":
         return "Envia o texto completo e indica o idioma de destino. Vou preservar o sentido e assinalar expressões ambíguas."
     if intent == "opinion":
@@ -132,8 +132,9 @@ def answer_for(intent: str, message: str) -> str:
         return "Vamos decompor o problema: o que aconteceu, qual era o resultado esperado, o que já tentaste e qual é a principal limitação? Com esses dados posso propor uma solução verificável."
     if intent == "clarification":
         return "Ainda não existe uma resposta anterior disponível no servidor público. Indica a parte que ficou pouco clara e reformulo-a."
-    return ("Recebi o teu pedido: «" + message[:500] + "». O meu motor próprio ainda está a evoluir e não vou inventar uma resposta quando não tenho base suficiente. "
-            "Dá-me um pouco mais de contexto ou um exemplo do resultado que esperas.")
+    return ("Recebi o teu pedido: «" + message[:500] + "». Vou procurar a forma mais útil e segura de avançar. "
+            "Para não inventar dados, preciso de um detalhe adicional: qual é o resultado concreto que esperas? "
+            "Com isso, posso dividir o objetivo em etapas e indicar o próximo passo executável.")
 
 
 @app.get("/health")
