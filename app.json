@@ -38,8 +38,7 @@
       ],
       "expo-contacts",
       "expo-calendar",
-      "expo-notifications",
-      "./plugins/withWyzenWakeWord"
+      "expo-notifications"
     ],
     "extra": {
       "eas": {
