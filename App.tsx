@@ -511,7 +511,7 @@ export default function App() {
           setStatus("A preparar ação para o contacto");
           try {
             const result = await performPhoneAction(action);
-            await recordCoreOutcome("ação de contacto", action.type === "reminder" ? "success" : "uncertain", result);
+            await recordCoreOutcome("ação de contacto", "uncertain", result);
             setAnswer(result);
             setStatus("Concluído");
             speakWyzen(result, { language: "pt-PT" });
