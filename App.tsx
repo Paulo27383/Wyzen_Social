@@ -19,6 +19,7 @@ import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
+import { getActiveMission, startMission, updateMissionStep, finishMission } from "./src/core/missionControl";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -157,6 +158,41 @@ export default function App() {
 
   const runCommand = async (rawValue: string, skipCompound = false) => {
     if (!rawValue.trim() || (busy && !skipCompound)) return;
+    const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
+    if (!skipCompound && /^(?:retoma|continua|prossegue) (?:a )?miss[aã]o$/.test(missionCommand)) {
+      const mission = await getActiveMission();
+      if (!mission || mission.status === "completed") {
+        const message = "Não encontrei uma missão pendente. Diz-me o objetivo e preparo uma nova missão.";
+        setAnswer(message); setStatus("Sem missão pendente"); speakWyzen(message, { language: "pt-PT" });
+        return;
+      }
+      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
+        (mission.nextStep + 1) + ": " + (mission.steps[mission.nextStep]?.command || "rever o resultado") +
+        ". Se a aplicação foi fechada durante uma etapa, confirma o estado dessa etapa antes de continuar. Queres retomar?";
+      Alert.alert("Retomar missão WYZEN", message, [
+        { text: "Agora não", style: "cancel" },
+        { text: "Retomar", onPress: async () => {
+          setBusy(true);
+          try {
+            for (let index = mission.nextStep; index < mission.steps.length; index += 1) {
+              setStatus("Missão retomada · etapa " + (index + 1) + " de " + mission.steps.length);
+              await updateMissionStep(mission.id, index, "running");
+              await runCommand(mission.steps[index].command, true);
+              await updateMissionStep(mission.id, index, "completed");
+            }
+            await finishMission(mission.id);
+            const result = "Missão concluída. Todas as " + mission.steps.length + " etapas foram processadas.";
+            setAnswer(result); setStatus("Missão concluída"); speakWyzen(result, { language: "pt-PT" });
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : "Falha inesperada";
+            await updateMissionStep(mission.id, mission.nextStep, "failed", reason);
+            setAnswer("A missão ficou interrompida. " + reason + " Podes verificar a etapa e pedir para retomar.");
+            setStatus("Missão interrompida");
+          } finally { setBusy(false); }
+        }}
+      ]);
+      return;
+    }
     if (!skipCompound) {
       const compoundPlan = planCompoundCommand(rawValue);
       if (compoundPlan.isCompound && compoundPlan.supported) {
