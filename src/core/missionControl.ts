@@ -58,7 +58,17 @@ export async function updateMissionStep(
 ): Promise<MissionRecord | null> {
   const mission = await getActiveMission();
   if (!mission || mission.id !== missionId || index < 0 || index >= mission.steps.length) return null;
-  mission.steps[index] = { command: mission.steps[index].command, status, ...(error ? { error } : {}) };
+  const current = mission.steps[index].status;
+  if (current === "completed" && status !== "completed") {
+    throw new Error("Uma etapa concluída não pode ser reaberta sem criar uma nova missão.");
+  }
+  if (status === "completed" && current !== "running" && current !== "completed") {
+    throw new Error("A etapa só pode ser concluída depois de estar em execução.");
+  }
+  if (status === "failed" && current !== "running" && current !== "failed") {
+    throw new Error("Só é possível registar falha numa etapa em execução.");
+  }
+  mission.steps[index] = { command: mission.steps[index].command, status, ...(error ? { error: error.slice(0, 300) } : {}) };
   mission.nextStep = mission.steps.findIndex(step => step.status !== "completed");
   if (mission.nextStep < 0) mission.nextStep = mission.steps.length;
   mission.status = status === "failed" ? "interrupted" : "active";
