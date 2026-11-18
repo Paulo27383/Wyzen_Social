@@ -2,7 +2,8 @@ import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
-import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";\nimport { buildKnowledgeContext, formatKnowledgeFallback, searchKnowledge } from "./knowledgeSearch";
+import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";
+import { buildKnowledgeContext, formatKnowledgeFallback, searchKnowledge } from "./knowledgeSearch";
 
 export type AssistantReply = {
   answer: string;
@@ -140,6 +141,13 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     // A conversa continua mesmo que a memória ou o histórico local estejam indisponíveis.
   }
 
+  let knowledgeSources: Awaited<ReturnType<typeof searchKnowledge>> = [];
+  try {
+    knowledgeSources = await searchKnowledge(cleanCommand);
+  } catch {
+    // A falha da pesquisa não deve impedir a conversa normal.
+  }
+
   let localModelError = "";
   try {
     const status = await getLocalModelStatus();
@@ -147,7 +155,9 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       const answer = await generateLocalResponse(cleanCommand, memories, dialogue, buildKnowledgeContext(knowledgeSources));
       if (answer.trim()) {
         return addressReply({
-          answer: answer.trim(),
+          answer: knowledgeSources.length
+            ? answer.trim() + "\n\nFontes consultadas (Wikimedia):\n" + knowledgeSources.map((source, index) => (index + 1) + ". " + source.title + " — " + source.url).join("\n")
+            : answer.trim(),
           intent,
           engine: "wyzen-local-llm",
           modelRequired: false
@@ -157,6 +167,15 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     }
   } catch (error) {
     localModelError = error instanceof Error ? error.message : "Falha no modelo local.";
+  }
+
+  if (knowledgeSources.length) {
+    return addressReply({
+      answer: formatKnowledgeFallback(knowledgeSources),
+      intent: "knowledge_search",
+      engine: "wyzen-wikimedia-knowledge",
+      modelRequired: false
+    }, preferredName);
   }
 
   try {
