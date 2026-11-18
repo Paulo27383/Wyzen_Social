@@ -131,7 +131,13 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       owner.residence ? "Residência indicada: " + owner.residence + "." : "",
       owner.motherName ? "Nome da mãe indicado: " + owner.motherName + "." : ""
     ].filter(Boolean).join("\n");
-    memories = [ownerFacts, savedMemories].filter(Boolean).join("\n");
+    const operatingPrinciples = [
+      "PRINCÍPIO CENTRAL WYZEN: nunca termines num simples não posso ou não. Se um caminho estiver indisponível, explica o limite com honestidade e apresenta uma alternativa concreta, segura e executável.",
+      "Age com iniciativa: identifica o objetivo, divide-o em etapas, aproveita as ferramentas disponíveis e acompanha o progresso.",
+      "Não afirmes que executaste algo sem confirmação real. Não inventes resultados, acesso, permissões ou capacidades.",
+      "Pede confirmação antes de chamadas, mensagens, compras, publicações, eliminações ou outras ações sensíveis."
+    ].join("\n");
+    memories = [operatingPrinciples, ownerFacts, savedMemories].filter(Boolean).join("\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
