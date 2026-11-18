@@ -3,7 +3,7 @@ import { dailyInteractions, recallWyzen } from "./memory";
 import { listTasks } from "./tasks";
 
 const normalize = (value: string) => value.toLocaleLowerCase("pt-PT")
-  .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 function localDayRange(now: Date): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -82,5 +82,5 @@ export async function buildDailyPlan(now = new Date()): Promise<string> {
   else if (pending.length) lines.push("- Escolhe uma tarefa pendente e começa por ela; não há compromissos confirmados no calendário.");
   else lines.push("- Define uma prioridade para hoje. Não encontrei tarefas pendentes nem eventos acessíveis.");
 
-  return lines.join("\\n");
+  return lines.join("\n");
 }
