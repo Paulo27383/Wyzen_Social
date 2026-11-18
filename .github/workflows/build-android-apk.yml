@@ -56,6 +56,13 @@ jobs:
       - name: Check TypeScript
         run: npm run typecheck
 
+      - name: Download and verify Sherpa ONNX Android AAR
+        run: |
+          mkdir -p modules/wyzen-wake-word/android/libs
+          curl --fail --location --retry 3 --output modules/wyzen-wake-word/android/libs/sherpa-onnx-2.0.1.aar \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-2.0.1.aar
+          echo "a8d09d1d32f3eb8520482c6d3d43fae674681c5b050385967c70a3c2c9bf0ee7  modules/wyzen-wake-word/android/libs/sherpa-onnx-2.0.1.aar" | sha256sum --check
+
       - name: Generate Android launcher PNG
         run: npx --yes sharp-cli -i assets/icon.svg -o assets/icon.png resize 1024 1024
 
