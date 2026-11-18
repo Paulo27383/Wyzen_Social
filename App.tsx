@@ -187,8 +187,10 @@ export default function App() {
         { text: "Agora não", style: "cancel" },
         { text: "Retomar", onPress: async () => {
           setBusy(true);
+          let activeStep = mission.nextStep;
           try {
             for (let index = mission.nextStep; index < mission.steps.length; index += 1) {
+              activeStep = index;
               setStatus("Missão retomada · etapa " + (index + 1) + " de " + mission.steps.length);
               await updateMissionStep(mission.id, index, "running");
               await runCommand(mission.steps[index].command, true);
@@ -199,7 +201,7 @@ export default function App() {
             setAnswer(result); setStatus("Missão concluída"); speakWyzen(result, { language: "pt-PT" });
           } catch (error) {
             const reason = error instanceof Error ? error.message : "Falha inesperada";
-            await updateMissionStep(mission.id, mission.nextStep, "failed", reason);
+            await updateMissionStep(mission.id, activeStep, "failed", reason);
             setAnswer("A missão ficou interrompida. " + reason + " Podes verificar a etapa e pedir para retomar.");
             setStatus("Missão interrompida");
           } finally { setBusy(false); }
@@ -220,9 +222,11 @@ export default function App() {
             setBusy(true);
             setStatus("A preparar a missão");
             let mission: Awaited<ReturnType<typeof startMission>> | null = null;
+            let activeStep = 0;
             try {
               mission = await startMission(compoundPlan.steps);
               for (let index = 0; index < mission.steps.length; index += 1) {
+                activeStep = index;
                 setStatus("Missão em curso · etapa " + (index + 1) + " de " + mission.steps.length);
                 await updateMissionStep(mission.id, index, "running");
                 await runCommand(mission.steps[index].command, true);
@@ -236,7 +240,7 @@ export default function App() {
               speakWyzen("Missão concluída.", { language: "pt-PT" });
             } catch (error) {
               const reason = error instanceof Error ? error.message : "Erro desconhecido";
-              if (mission) await updateMissionStep(mission.id, mission.nextStep, "failed", reason);
+              if (mission) await updateMissionStep(mission.id, activeStep, "failed", reason);
               setAnswer("A missão foi interrompida. " + reason + " O progresso ficou guardado; podes pedir “retoma missão” depois de verificar a última etapa.");
               setStatus("Missão interrompida");
             } finally {
