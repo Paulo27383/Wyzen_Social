@@ -19,7 +19,6 @@ import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
-import WyzenCommandDeck from "./src/components/WyzenCommandDeck";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -48,7 +47,6 @@ export default function App() {
   const [modelDownloadMB, setModelDownloadMB] = useState(398);
   const [modelBusy, setModelBusy] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
-  const [commandDeckVisible, setCommandDeckVisible] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
 
@@ -493,40 +491,22 @@ export default function App() {
     setCommand("");
   };
 
-  const runQuickAction = (value: string) => {
-    if (busy) return;
-    runCommand(value);
-  };
-
-  const openSystems = () => {
-    if (busy) return;
-    setCommandDeckVisible(true);
-  };
-
-  const executeCommand = () => {
-    const value = command.trim();
-    if (!value) {
-      Alert.alert("EXECUTAR", "Escreve ou dita primeiro o que queres que a Wyzen faça.");
-      return;
-    }
-    Keyboard.dismiss();
-    runCommand(value);
-    setCommand("");
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#050306" />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
-          <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text><Text style={styles.topline}>PERSONAL INTELLIGENCE</Text></View>
-          <View style={styles.center}><View pointerEvents="none" style={styles.waveHalo}><View style={styles.waveRed} /><View style={styles.waveBlue} /></View>
+          <View style={styles.center}>
+            <View pointerEvents="none" style={styles.waveHalo}>
+              <View style={styles.waveRed} />
+              <View style={styles.waveBlue} />
+            </View>
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
               <View style={styles.emblem}>
-                <Text onPress={startVoice} style={styles.w}>W</Text>
+                <Text onPress={startVoice} accessibilityRole="button" style={styles.w}>W</Text>
               </View>
             </Animated.View>
-            <Text style={styles.creator}>WYZEN AI</Text><Text style={styles.brandline}>YOUR PERSONAL CONTROL CENTER</Text>
+            <Text style={styles.wordmark}>WYZEN</Text>
             <Text style={styles.status}>{status}</Text>
             {phase === "enroll" && (
               <View style={styles.enroll}>
@@ -542,78 +522,58 @@ export default function App() {
             )}
           </View>
           {phase === "ready" && (
-            <View>
-              <View style={styles.composer}>
-                <TextInput value={command} onChangeText={setCommand}
-                  onSubmitEditing={sendTypedCommand} returnKeyType="send"
-                  placeholder="Escreve ou dita à Wyzen..." placeholderTextColor="#68718A"
-                  style={styles.commandInput} multiline />
-              </View>
-              <View style={styles.primaryActions}>
-              <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()} accessibilityRole="button" accessibilityLabel="Enviar mensagem" style={({ pressed }) => [styles.primaryButton, styles.sendButton, pressed && styles.quickPressed]}>
-                <Text style={styles.send}>ENVIAR</Text>
+            <View style={styles.composer}>
+              <TextInput value={command} onChangeText={setCommand}
+                onSubmitEditing={sendTypedCommand} returnKeyType="send"
+                placeholder="Fala comigo..." placeholderTextColor="#778395"
+                style={styles.commandInput} multiline />
+              <Pressable onPress={sendTypedCommand} disabled={busy || !command.trim()}
+                accessibilityRole="button" accessibilityLabel="Enviar comando"
+                style={({ pressed }) => [styles.sendControl, pressed && styles.quickPressed]}>
+                <Text style={styles.sendIcon}>↑</Text>
               </Pressable>
-              <Pressable onPress={executeCommand} disabled={busy} accessibilityRole="button" accessibilityLabel="Executar pedido" style={({ pressed }) => [styles.primaryButton, styles.executeButton, pressed && styles.quickPressed]}>
-                <Text style={styles.executeText}>✦  EXECUTAR</Text>
-              </Pressable>
-              <Pressable onPress={openSystems} disabled={busy} accessibilityRole="button" accessibilityLabel="Abrir sistemas" style={({ pressed }) => [styles.primaryButton, styles.systemsButton, pressed && styles.quickPressed]}>
-                <Text style={styles.systemsText}>⌘  SISTEMAS</Text>
-              </Pressable>
-              </View>
             </View>
           )}
-          <Text style={styles.footer}>ASSISTENTE PESSOAL • WYZEN AI</Text>
         </View>
       </TouchableWithoutFeedback>
-      <WyzenCommandDeck
-        visible={commandDeckVisible}
-        busy={busy}
-        listening={listening}
-        voiceEnabled={continuousEnabled}
-        modelReady={modelReady}
-        onClose={() => setCommandDeckVisible(false)}
-        onCommand={(value) => {
-          setCommandDeckVisible(false);
-          runQuickAction(value);
-        }}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050306" },
-  screen: { flex: 1, backgroundColor: "#050306", paddingHorizontal: 25, justifyContent: "space-between", overflow: "hidden" },
+  safe: { flex: 1, backgroundColor: "#030507" },
+  screen: { flex: 1, backgroundColor: "#030507", paddingHorizontal: 22, justifyContent: "space-between", overflow: "hidden" },
   top: { alignItems: "center", paddingTop: 18 },
-  wordmark: { color: "#F5F8FF", fontSize: 18, fontWeight: "900", letterSpacing: 9, textShadowColor: "#00CFFF", textShadowRadius: 16 },
+  wordmark: { color: "#EAF6FF", fontSize: 16, fontWeight: "900", letterSpacing: 7, marginTop: 4, textShadowColor: "#00CFFF", textShadowRadius: 14 },
   topline: { color: "#9AA9C2", fontSize: 8, fontWeight: "700", letterSpacing: 3.2, marginTop: 7 },
-  center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%" },
+  center: { alignItems: "center", justifyContent: "center", flex: 1, width: "100%", paddingVertical: 18 },
   waveHalo: { position: "absolute", width: 300, height: 300, alignItems: "center", justifyContent: "center" },
-  waveRed: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(255,45,75,0.72)", borderRadius: 100, transform: [{ rotate: "-28deg" }], shadowColor: "#FF234D", shadowRadius: 22, shadowOpacity: 0.9 },
-  waveBlue: { position: "absolute", width: 286, height: 112, borderWidth: 2, borderColor: "rgba(0,205,255,0.8)", borderRadius: 100, transform: [{ rotate: "28deg" }], shadowColor: "#00CFFF", shadowRadius: 22, shadowOpacity: 0.9 },
+  waveRed: { position: "absolute", width: 270, height: 106, borderWidth: 1.5, borderColor: "rgba(255,45,75,0.48)", borderRadius: 100, transform: [{ rotate: "-28deg" }], shadowColor: "#FF234D", shadowRadius: 18, shadowOpacity: 0.65 },
+  waveBlue: { position: "absolute", width: 270, height: 106, borderWidth: 1.5, borderColor: "rgba(0,205,255,0.62)", borderRadius: 100, transform: [{ rotate: "28deg" }], shadowColor: "#00CFFF", shadowRadius: 18, shadowOpacity: 0.7 },
   emblem: { alignItems: "center", justifyContent: "center", minWidth: 230, minHeight: 220 },
   crown: { color: "#EAF6FF", fontSize: 62, lineHeight: 72, fontWeight: "900", textShadowColor: "#00CFFF", textShadowRadius: 18, marginBottom: -18, zIndex: 2 },
   w: { color: "#F1F5FA", fontSize: 150, fontWeight: "900", fontStyle: "italic", letterSpacing: -18, textShadowColor: "#00BFFF", textShadowRadius: 24, textShadowOffset: { width: 3, height: 0 } },
-  creator: { color: "#F5F8FF", fontSize: 15, fontWeight: "900", letterSpacing: 6, marginTop: -5, textShadowColor: "#FF294F", textShadowRadius: 14 },
-  brandline: { color: "#8794A8", fontSize: 8, fontWeight: "700", letterSpacing: 2, marginTop: 12 },
-  status: { color: "#A6B2C5", fontSize: 12, letterSpacing: 1, marginTop: 12, textAlign: "center" },
+
+
+  status: { color: "#AAB7C8", fontSize: 13, letterSpacing: 0.4, marginTop: 14, textAlign: "center" },
   enroll: { width: "100%", marginTop: 38, alignItems: "center" },
   title: { color: "#F4F6FF", fontSize: 19, fontWeight: "600" },
   hint: { color: "#A6B2C5", fontSize: 12, lineHeight: 19, textAlign: "center", marginTop: 9, maxWidth: 290 },
   nameInput: { width: "82%", color: "white", borderBottomWidth: 1, borderBottomColor: "#00BFEF", paddingVertical: 12, textAlign: "center", fontSize: 16, marginTop: 17 },
   phrase: { color: "#748096", fontSize: 10, marginTop: 13, textAlign: "center" },
-  answer: { color: "#E0E8F5", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 28, maxWidth: 330 },
-  composer: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#26313D", paddingTop: 10, paddingBottom: 6, gap: 12 },
+  answer: { color: "#E6EDF5", fontSize: 18, lineHeight: 29, textAlign: "left", marginTop: 28, width: "100%", maxWidth: 380, paddingHorizontal: 5, flexShrink: 1 },
+  composer: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#202A36", backgroundColor: "#0B1017", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 12, minHeight: 62, gap: 12 },
   primaryActions: { flexDirection: "row", gap: 8, paddingBottom: 10 },
   primaryButton: { flex: 1, minWidth: 0, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
   executeButton: { borderWidth: 1, borderColor: "rgba(255,45,90,0.65)", backgroundColor: "rgba(255,45,90,0.10)" },
   executeText: { color: "#FF6685", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
   systemsButton: { borderWidth: 1, borderColor: "rgba(160,130,255,0.65)", backgroundColor: "rgba(125,90,220,0.12)" },
   systemsText: { color: "#C1A9FF", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
-  commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
+  commandInput: { flex: 1, color: "#F4F7FB", fontSize: 17, lineHeight: 24, maxHeight: 110, paddingVertical: 8 },
   sendButton: { borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)" },
   sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  send: { color: "#00D5FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
-  quickPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+  sendControl: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "#102633", borderWidth: 1, borderColor: "#14516A" },
+  sendIcon: { color: "#55DFFF", fontSize: 27, fontWeight: "600", lineHeight: 30 },
+  quickPressed: { opacity: 0.7, transform: [{ scale: 0.96 }] },
   footer: { color: "#687487", fontSize: 8, letterSpacing: 2, textAlign: "center", paddingVertical: 16 }
 });
