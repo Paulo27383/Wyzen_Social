@@ -116,8 +116,8 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       owner.course ? "Formação: " + owner.course + "." : "",
       owner.residence ? "Residência indicada: " + owner.residence + "." : "",
       owner.motherName ? "Nome da mãe indicado: " + owner.motherName + "." : ""
-    ].filter(Boolean).join("\\n");
-    memories = [ownerFacts, savedMemories].filter(Boolean).join("\\n");
+    ].filter(Boolean).join("\n");
+    memories = [ownerFacts, savedMemories].filter(Boolean).join("\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
