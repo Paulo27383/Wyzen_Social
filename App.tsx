@@ -204,22 +204,27 @@ export default function App() {
           { text: "Cancelar", style: "cancel", onPress: () => setStatus("Plano cancelado — nenhuma etapa executada") },
           { text: "Executar", onPress: async () => {
             setBusy(true);
-            setStatus("A executar o plano");
-            const results: string[] = [];
+            setStatus("A preparar a missão");
+            let mission: Awaited<ReturnType<typeof startMission>> | null = null;
             try {
-              for (let index = 0; index < compoundPlan.steps.length; index += 1) {
-                setStatus("A executar etapa " + (index + 1) + " de " + compoundPlan.steps.length);
-                await runCommand(compoundPlan.steps[index], true);
-                results.push("Etapa " + (index + 1) + " processada: " + compoundPlan.steps[index]);
+              mission = await startMission(compoundPlan.steps);
+              for (let index = 0; index < mission.steps.length; index += 1) {
+                setStatus("Missão em curso · etapa " + (index + 1) + " de " + mission.steps.length);
+                await updateMissionStep(mission.id, index, "running");
+                await runCommand(mission.steps[index].command, true);
+                await updateMissionStep(mission.id, index, "completed");
               }
-              const summary = "Plano concluído. " + results.join(" • ");
+              await finishMission(mission.id);
+              const summary = "Missão concluída. " + mission.steps.length + " etapas processadas e registadas. Podes pedir “retoma missão” para continuar trabalhos interrompidos.";
               setAnswer(summary);
-              setStatus("Plano concluído");
-              speakWyzen("Plano concluído.", { language: "pt-PT" });
+              setStatus("Missão concluída");
+              await recordInteraction(rawValue, summary, "summary");
+              speakWyzen("Missão concluída.", { language: "pt-PT" });
             } catch (error) {
               const reason = error instanceof Error ? error.message : "Erro desconhecido";
-              setAnswer("O plano foi interrompido na etapa " + (results.length + 1) + ". " + reason);
-              setStatus("Plano interrompido");
+              if (mission) await updateMissionStep(mission.id, mission.nextStep, "failed", reason);
+              setAnswer("A missão foi interrompida. " + reason + " O progresso ficou guardado; podes pedir “retoma missão” depois de verificar a última etapa.");
+              setStatus("Missão interrompida");
             } finally {
               setBusy(false);
             }
