@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureLocalStorage as AsyncStorage } from "./secureLocalStorage";
 
 const MEMORY_KEY = "wyzen.memory.v1";
 export type MemoryItem = { id: string; text: string; createdAt: string };
@@ -22,6 +22,10 @@ export async function rememberWyzen(text: string): Promise<void> {
   const filtered = items.filter(item => item.text.toLocaleLowerCase("pt-PT") !== normalized);
   filtered.unshift({ id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8), text: value, createdAt: new Date().toISOString() });
   await AsyncStorage.setItem(MEMORY_KEY, JSON.stringify(filtered.slice(0, 300)));
+  const persisted = await readAll();
+  if (!persisted.some(item => item.text.toLocaleLowerCase("pt-PT") === normalized)) {
+    throw new Error("A informação não ficou confirmada na memória local.");
+  }
 }
 
 export async function recallWyzen(query = ""): Promise<MemoryItem[]> {

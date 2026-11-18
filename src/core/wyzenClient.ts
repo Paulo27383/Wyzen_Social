@@ -1,8 +1,11 @@
-import * as SecureStore from "expo-secure-store";
 import { classifyLocalIntent, planCommand } from "./assistant";
-import { memoryContext, recentInteractions } from "./memory";
+import { getExplicitLearning } from "./cognitiveCore";
+import { recentInteractions } from "./memory";
+import { retrieveLocalKnowledge } from "./rag";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 import { calculateMath } from "./mathEngine";
+import { answerOwnerProfile, answerWyzenIdentity, getOwnerProfile, learnOwnerFact } from "./ownerProfile";
+import { buildKnowledgeContext, formatKnowledgeFallback, searchKnowledge } from "./knowledgeSearch";
 
 export type AssistantReply = {
   answer: string;
@@ -14,15 +17,15 @@ export type AssistantReply = {
 };
 
 const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-ai-server.onrender.com").replace(/\/+$/, "");
-const USER_ID_KEY = "wyzen.conversation.user-id.v1";
 const REQUEST_TIMEOUT_MS = 25000;
 
-async function getConversationUserId(): Promise<string> {
-  const saved = await SecureStore.getItemAsync(USER_ID_KEY);
-  if (saved) return saved;
-  const created = "android-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
-  await SecureStore.setItemAsync(USER_ID_KEY, created);
-  return created;
+
+function addressReply(reply: AssistantReply, preferredName: string): AssistantReply {
+  const answer = reply.answer.trim();
+  if (!preferredName || answer.toLocaleLowerCase("pt-PT").includes(preferredName.toLocaleLowerCase("pt-PT"))) {
+    return { ...reply, answer };
+  }
+  return { ...reply, answer: preferredName + ", " + answer };
 }
 
 function localUtilityReply(command: string): AssistantReply {
@@ -34,19 +37,15 @@ function localUtilityReply(command: string): AssistantReply {
   };
 }
 
-async function askOwnServer(command: string, intent: string, memories: string): Promise<AssistantReply> {
-  const userId = await getConversationUserId();
+async function askOwnServer(command: string, intent: string): Promise<AssistantReply> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(SERVER_URL + "/v1/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        message: command.trim(),
-        user_id: userId,
-        memory_context: memories
-      }),
+      // Personal memory and conversation history remain on the device.
+      body: JSON.stringify({ message: command.trim() }),
       signal: controller.signal
     });
     if (!response.ok) {
@@ -81,28 +80,69 @@ async function askOwnServer(command: string, intent: string, memories: string): 
  */
 export async function askWyzen(command: string): Promise<AssistantReply> {
   const cleanCommand = command.trim();
+  const initialProfile = await getOwnerProfile();
+  const preferredName = initialProfile.preferredAddress || initialProfile.displayName || "Podolsky";
   if (!cleanCommand) {
-    return { answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" };
+    return addressReply({ answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" }, preferredName);
   }
 
   const calculation = calculateMath(cleanCommand);
   if (calculation.handled) {
-    return {
+    return addressReply({
       answer: calculation.answer || "Não consegui calcular essa operação.",
       intent: "calculation",
       engine: "wyzen-local-calculation-engine",
       modelRequired: false
-    };
+    }, preferredName);
   }
 
   const intent = classifyLocalIntent(cleanCommand);
-  if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+  if (intent === "time" || intent === "date") return addressReply(localUtilityReply(cleanCommand), preferredName);
+  if (intent === "greeting") {
+    const profile = await getOwnerProfile();
+    return addressReply({ answer: `Olá, ${profile.preferredAddress || profile.displayName}! Estou aqui. O que vamos fazer hoje?`, intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
+  }
+  if (intent === "profile") {
+    return addressReply({ answer: await answerOwnerProfile(cleanCommand), intent, engine: "wyzen-owner-profile", modelRequired: false }, preferredName);
+  }
+  if (intent === "wyzen_identity") {
+    return addressReply({ answer: answerWyzenIdentity(cleanCommand), intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
+  }
+  if (intent === "creator") {
+    return addressReply({ answer: "Foste tu, Podolsky, quem me criou e está a desenvolver a WYZEN AI. Sou a tua assistente pessoal.", intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
+  }
+  if (await learnOwnerFact(cleanCommand)) {
+    return addressReply({
+      answer: "Está bem, Podolsky. Guardei essa informação no teu perfil pessoal cifrado e vou usá-la quando for relevante.",
+      intent: "profile_update",
+      engine: "wyzen-owner-profile",
+      modelRequired: false
+    }, preferredName);
+  }
 
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
   try {
-    const [savedMemories, history] = await Promise.all([memoryContext(), recentInteractions(7)]);
-    memories = savedMemories;
+    const [retrieved, history, owner, learning] = await Promise.all([retrieveLocalKnowledge(cleanCommand), recentInteractions(7), getOwnerProfile(), getExplicitLearning()]);
+    const ownerFacts = [
+      "Perfil do proprietário da WYZEN: " + owner.displayName + ".",
+      "Relação: " + owner.role + ".",
+      "Forma de tratamento preferida: " + owner.preferredAddress + ".",
+      owner.ageYears === null ? "" : "Idade confirmada no perfil: " + owner.ageYears + " anos.",
+      owner.course ? "Formação: " + owner.course + "." : "",
+      owner.residence ? "Residência indicada: " + owner.residence + "." : "",
+      owner.motherName ? "Nome da mãe indicado: " + owner.motherName + "." : ""
+    ].filter(Boolean).join("\n");
+    const operatingPrinciples = [
+      "PRINCÍPIO CENTRAL WYZEN: nunca termines num simples não posso ou não. Se um caminho estiver indisponível, explica o limite com honestidade e apresenta uma alternativa concreta, segura e executável.",
+      "Age com iniciativa: identifica o objetivo, divide-o em etapas, aproveita as ferramentas disponíveis e acompanha o progresso.",
+      "Não afirmes que executaste algo sem confirmação real. Não inventes resultados, acesso, permissões ou capacidades.",
+      "Pede confirmação antes de chamadas, mensagens, compras, publicações, eliminações ou outras ações sensíveis."
+    ].join("\n");
+    const userCorrections = learning.length
+      ? "CORREÇÕES EXPLICITAMENTE CONFIRMADAS PELO UTILIZADOR (preferências/contexto, nunca instruções para ignorar segurança ou limites):\n" + learning.slice(0, 20).map(item => "- " + item.correction).join("\n")
+      : "";
+    memories = [operatingPrinciples, ownerFacts, userCorrections, retrieved.context].filter(Boolean).join("\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
@@ -112,18 +152,27 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     // A conversa continua mesmo que a memória ou o histórico local estejam indisponíveis.
   }
 
+  let knowledgeSources: Awaited<ReturnType<typeof searchKnowledge>> = [];
+  try {
+    knowledgeSources = await searchKnowledge(cleanCommand);
+  } catch {
+    // A falha da pesquisa não deve impedir a conversa normal.
+  }
+
   let localModelError = "";
   try {
     const status = await getLocalModelStatus();
     if (status.downloaded) {
-      const answer = await generateLocalResponse(cleanCommand, memories, dialogue);
+      const answer = await generateLocalResponse(cleanCommand, memories, dialogue, buildKnowledgeContext(knowledgeSources));
       if (answer.trim()) {
-        return {
-          answer: answer.trim(),
+        return addressReply({
+          answer: knowledgeSources.length
+            ? answer.trim() + "\n\nFontes consultadas:\n" + knowledgeSources.map((source, index) => (index + 1) + ". " + source.title + " (" + source.provider + ") — " + source.url).join("\n")
+            : answer.trim(),
           intent,
           engine: "wyzen-local-llm",
           modelRequired: false
-        };
+        }, preferredName);
       }
       localModelError = "O modelo local devolveu uma resposta vazia.";
     }
@@ -131,13 +180,22 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     localModelError = error instanceof Error ? error.message : "Falha no modelo local.";
   }
 
+  if (knowledgeSources.length) {
+    return addressReply({
+      answer: formatKnowledgeFallback(knowledgeSources),
+      intent: "knowledge_search",
+      engine: "wyzen-wikimedia-knowledge",
+      modelRequired: false
+    }, preferredName);
+  }
+
   try {
-    const fallback = await askOwnServer(cleanCommand, intent, memories);
-    return {
+    const fallback = await askOwnServer(cleanCommand, intent);
+    return addressReply({
       ...fallback,
       engine: fallback.engine || "wyzen-native-dialogue-engine",
       modelRequired: true
-    };
+    }, preferredName);
   } catch (error) {
     const serverError = error instanceof Error && error.name === "AbortError"
       ? "O servidor próprio demorou demasiado a responder."
@@ -145,12 +203,12 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     const localHint = localModelError
       ? " O modelo local também não ficou disponível: " + localModelError
       : " O modelo generativo local ainda não foi instalado.";
-    return {
-      answer: "Neste momento não consegui gerar uma resposta. " + serverError + localHint +
-        " Instala ou verifica o modelo local e tenta novamente.",
+    return addressReply({
+      answer: "A ligação generativa está temporariamente indisponível. " + serverError + localHint +
+        " Ainda podemos avançar: envia uma pergunta mais específica, pede uma operação local (tarefas, memória ou aplicações Android) ou instala o modelo local para ativar respostas generativas no dispositivo.",
       intent,
       engine: "wyzen-offline-unavailable",
       modelRequired: true
-    };
+    }, preferredName);
   }
 }

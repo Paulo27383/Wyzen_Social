@@ -1,5 +1,5 @@
 export type LocalIntent =
-  | "greeting" | "creator" | "profile" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
+  | "greeting" | "creator" | "profile" | "wyzen_identity" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
 
 export type CommandResult = {
   title: string;
@@ -16,7 +16,8 @@ const sensitiveTerms = [
 
 export function classifyLocalIntent(raw: string): LocalIntent {
   const value = raw.trim().toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (/\b(quem e podolsky|quem e o podolsky|fala sobre podolsky|perfil de podolsky|quem e podolsky wyzen)\b/.test(value)) return "profile";
+  if (/\b(quem sou eu|qual e o meu nome|quantos anos tenho|qual a minha idade|onde vivo|onde moro|onde resido|quem e a minha mae|nome da minha mae|o que sabes sobre mim|fala sobre mim|perfil de podolsky|quem e podolsky)\b/.test(value)) return "profile";
+  if (/\b(quem es tu|quem e a wyzen|o que es para mim|o que sou para ti|qual e o teu papel|qual e a nossa relacao)\b/.test(value)) return "wyzen_identity";
   if (/\b(quem (te|a) criou|quem criou voce|quem criou você|quem (te|a) fez|quem e o teu criador|quem e seu criador|quem desenvolveu)\b/.test(value)) return "creator";
   if (/^(ola|olá|oi|bom dia|boa tarde|boa noite|hey)\b/.test(value)) return "greeting";
   if (/\b(que horas|horas sao|hora atual|diz as horas)\b/.test(value)) return "time";
@@ -53,7 +54,12 @@ export function planCommand(raw: string): CommandResult {
     return { title: "Data de hoje", steps: [new Intl.DateTimeFormat("pt-PT", { dateStyle: "full" }).format(new Date())], requiresConfirmation: false, status: "planned", intent };
   }
   if (intent === "help") {
-    return { title: "Funções locais", steps: ["Consultar contactos: “procura contacto + nome”.", "Preparar chamada: “liga para + número”.", "Preparar SMS: “sms para + número: mensagem”.", "Criar lembrete: “lembra-me de + tarefa às HH:MM”.", "Abrir aplicações: “abre WhatsApp”, “abre Maps” ou “abre Gmail”.", "Gerir permissões: “autoriza microfone”, “autoriza contactos”, “autoriza calendário”."], requiresConfirmation: false, status: "planned", intent };
+    return { title: "Funções locais", steps: ["Consultar contactos: “procura contacto + nome”.", "Preparar chamada: “liga para + número”.", "Preparar SMS: “sms para + número: mensagem”.", "Criar lembrete: “lembra-me de + tarefa às HH:MM”.", "Abrir aplicações: “abre WhatsApp”, “abre Maps” ou “abre Gmail”.", "Gerir permissões: “autoriza microfone”, “autoriza contactos”, “autoriza calendário”.",
+      "Aprendizagem controlada: “corrige a WYZEN: ...”, “o que aprendeste comigo” e “esquece correção ...”.",
+      "Autoavaliação: “avalia o teu desempenho”.",
+      "Iniciativa: “analisa tarefas pendentes”.",
+      "Pesquisa na Internet: “pesquisa na internet sobre [tema]” ou “investiga [tema]”.",
+      "Assistência Android: “abre definições de Wi-Fi/Bluetooth/localização/ecrã/som/bateria/aplicações/notificações” abre o painel oficial do sistema."], requiresConfirmation: false, status: "planned", intent };
   }
 
   return {
@@ -132,7 +138,7 @@ export type CompoundCommandPlan = {
 };
 
 /**
- * Só prepara sequências compostas de tarefas e memória.
+ * Prepara missões compostas entre pesquisa, tarefas e memória.
  * Ações externas/sensíveis ficam fora desta execução em cadeia.
  */
 export function planCompoundCommand(raw: string): CompoundCommandPlan {
@@ -151,15 +157,29 @@ export function planCompoundCommand(raw: string): CompoundCommandPlan {
     /^(?:guarda na memória|memoriza|lembra-te que)\s+.+$/i.test(value);
   const isMemoryRead = (value: string) =>
     /^(?:consulta a memória|o que sabes sobre|o que te lembras sobre)(?:\s+.+)?$/i.test(value);
+  const isKnowledgeSearch = (value: string) =>
+    /^(?:pesquisa(?:r)?(?: na internet)?|procura na internet|busca na internet|investiga|faz uma pesquisa)(?:\s+(?:sobre|por|na internet))?\s+.+$/i.test(value);
+  const isAndroidAppOpen = (value: string) =>
+    /^(?:abre|abrir|inicia|iniciar)\s+(?:whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i.test(value);
 
-  // Não interceptar frases em que "e" faz parte do título de uma tarefa.
-  const supported = normalized.every(value => isTask(value) || isMemoryWrite(value) || isMemoryRead(value));
+  // Uma missão pode cruzar pesquisa, organização local e abertura de aplicações.
+  // Chamadas, SMS e ações destrutivas externas não entram na execução em cadeia.
+  const supported = normalized.every(value =>
+    isTask(value) || isMemoryWrite(value) || isMemoryRead(value) ||
+    isKnowledgeSearch(value) || isAndroidAppOpen(value)
+  );
   if (!supported) return { isCompound: false, steps: [], clarification: null, supported: false };
 
+  const domains = normalized.map(value =>
+    isKnowledgeSearch(value) ? "pesquisa" :
+    isAndroidAppOpen(value) ? "Android" :
+    isTask(value) ? "tarefas" : "memória"
+  );
   return {
     isCompound: true,
     steps: normalized,
-    clarification: "Identifiquei " + normalized.length + " etapas: " +
+    clarification: "Preparei uma missão com " + normalized.length + " etapas (" +
+      domains.join(" → ") + "): " +
       normalized.map((step, index) => (index + 1) + ") " + step).join("; ") +
       ". Queres que execute todas por esta ordem?",
     supported: true

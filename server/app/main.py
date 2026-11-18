@@ -1,5 +1,6 @@
 import os
 import re
+import hmac
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,9 +20,8 @@ app = FastAPI(title="WYZEN Native Conversational Engine", version="0.3.0")
 
 
 class ChatInput(BaseModel):
+    # Public chat is stateless until per-user authentication exists.
     message: str = Field(min_length=1, max_length=4000)
-    user_id: str = Field(default="android-user", min_length=1, max_length=100)
-    memory_context: str = Field(default="", max_length=12000)
 
 
 class TrainingExample(BaseModel):
@@ -32,18 +32,8 @@ class TrainingExample(BaseModel):
 def db():
     connection = sqlite3.connect(DB_PATH, timeout=15)
     connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute("""CREATE TABLE IF NOT EXISTS memories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        message TEXT NOT NULL,
-        answer TEXT NOT NULL,
-        intent TEXT NOT NULL DEFAULT 'conversation',
-        created_at TEXT NOT NULL
-    )""")
-    # Migrate databases created by earlier WYZEN server versions.
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(memories)")}
-    if "intent" not in columns:
-        connection.execute("ALTER TABLE memories ADD COLUMN intent TEXT NOT NULL DEFAULT 'conversation'")
+    # Conversation content is no longer stored on the server.
+    # Existing legacy memories tables are left untouched; see server/README.md.
     connection.execute("""CREATE TABLE IF NOT EXISTS training_examples (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         text TEXT NOT NULL,
@@ -104,77 +94,47 @@ def classify(text: str) -> str:
     return "conversation"
 
 
-def recent_context(connection, user_id: str):
-    rows = connection.execute(
-        "SELECT message, answer, intent FROM memories WHERE user_id=? ORDER BY id DESC LIMIT 8",
-        (user_id,)
-    ).fetchall()
-    return list(reversed(rows))
-
-
-def memory_notes(memory_context: str):
-    return [line.strip()[2:] for line in memory_context.splitlines()
-            if line.strip().startswith("- ")][:12]
-
-
-def answer_for(intent: str, message: str, context, memory_context: str = "") -> str:
-    value = normalize(message)
-    last_user = context[-1][0] if context else ""
-    last_answer = context[-1][1] if context else ""
-    memories = memory_notes(memory_context)
-    memory_hint = (" Vou também considerar as notas que guardaste: " +
-                   "; ".join(memories[:3]) + ".") if memories else ""
-
+def answer_for(intent: str, message: str) -> str:
     if intent == "greeting":
         return "Olá! Sou a WYZEN. Estou pronta para conversar, compreender o que pretendes e ajudar-te a organizar ideias ou tarefas. O que vamos tratar?"
     if intent == "thanks":
         return "De nada. Continuo contigo. Podemos desenvolver a ideia, rever o resultado ou avançar para outra tarefa."
     if intent == "farewell":
-        return "Até já. A conversa fica guardada no meu histórico deste servidor para podermos retomar quando voltares."
+        return "Até já. O histórico desta conversa permanece no teu dispositivo, não no servidor público."
     if intent == "identity":
-        return "Sou a WYZEN, uma assistente pessoal com um motor conversacional desenvolvido para este projeto. Uso regras próprias de diálogo, contexto recente, memória fornecida pelo dispositivo e um classificador que pode ser treinado com exemplos. Não sou ainda um modelo generativo geral; quando não tiver conhecimento suficiente, devo dizê-lo."
+        return "Sou a WYZEN, uma assistente pessoal com um motor conversacional desenvolvido para este projeto. Uso regras próprias de diálogo e um classificador que pode ser treinado com exemplos. O histórico e a memória permanecem no dispositivo. Não sou ainda um modelo generativo geral; quando não tiver conhecimento suficiente, devo dizê-lo."
     if intent == "creator":
         return "Fui criada por Podolsky Wyzen P. O meu desenvolvimento é feito no projeto WYZEN AI."
     if intent == "capabilities":
-        return ("O meu núcleo atual consegue classificar intenções, acompanhar até oito turnos recentes, considerar notas de memória, responder a saudações, apoiar planeamento, aprendizagem, comparação, escrita, programação e resolução estruturada de problemas. "
+        return ("O meu núcleo atual consegue classificar intenções, responder a saudações, apoiar planeamento, aprendizagem, comparação, escrita, programação e resolução estruturada de problemas. "
                 "Ações Android continuam a ser executadas pelos módulos locais da aplicação e exigem permissões e confirmações apropriadas.")
     if intent == "time":
         return "A hora registada pelo servidor é " + datetime.now().astimezone().strftime("%H:%M") + ". Para a hora exata do teu telefone, a aplicação consulta o relógio local."
     if intent == "planning":
-        return "Vamos transformar isso num plano verificável. Vou separar o resultado pretendido, as tarefas, a ordem de prioridade, os recursos necessários e o prazo. Qual é o resultado final que queres alcançar?" + memory_hint
+        return "Vamos transformar isso num plano verificável. Vou separar o resultado pretendido, as tarefas, a ordem de prioridade, os recursos necessários e o prazo. Qual é o resultado final que queres alcançar?"
     if intent == "learning":
         return "Posso explicar o assunto, apresentar um exemplo e depois propor uma pequena verificação para confirmar a compreensão. Qual é o tema ou conceito que queres estudar?"
     if intent == "search":
-        return "O meu servidor próprio ainda não tem acesso direto à pesquisa na Internet. Posso analisar informação que partilhares, organizar perguntas de pesquisa ou explicar o que já conheço, distinguindo o que não consigo confirmar."
+        return "Vou ajudar-te a chegar à informação por uma via disponível. A pesquisa direta ainda não está ativa neste motor, mas posso estruturar a investigação, analisar fontes ou textos que partilhares e separar factos confirmados de pontos por verificar."
     if intent == "translation":
         return "Envia o texto completo e indica o idioma de destino. Vou preservar o sentido e assinalar expressões ambíguas."
     if intent == "opinion":
-        return "Vou avaliar a questão separando factos, pressupostos, vantagens, riscos e consequências. Qual é a situação concreta que queres analisar?" + memory_hint
+        return "Vou avaliar a questão separando factos, pressupostos, vantagens, riscos e consequências. Qual é a situação concreta que queres analisar?"
     if intent == "comparison":
         return "Para comparar corretamente, vou usar os mesmos critérios para cada opção: objetivo, vantagens, limitações, custo ou esforço e riscos. Quais são as opções que queres comparar?"
     if intent == "summary":
-        if last_user and last_answer:
-            return "Resumo do último ponto da conversa: pediste «" + last_user[:240] + "» e respondi «" + last_answer[:500] + "». Se enviares o texto ou indicares o tema completo, preparo um resumo mais abrangente."
         return "Envia o texto, documento ou tema que queres resumir e digo-te os pontos essenciais, sem acrescentar informação que não esteja na fonte."
     if intent == "creative":
-        return "Posso preparar esse conteúdo com uma estrutura e um tom adequados. Diz-me o destinatário ou público e o objetivo da mensagem." + memory_hint
+        return "Posso preparar esse conteúdo com uma estrutura e um tom adequados. Diz-me o destinatário ou público e o objetivo da mensagem."
     if intent == "coding":
         return "Posso ajudar a analisar a lógica, localizar erros e propor alterações. Partilha o trecho de código, a mensagem de erro e o comportamento que esperavas."
     if intent == "problem_solving":
         return "Vamos decompor o problema: o que aconteceu, qual era o resultado esperado, o que já tentaste e qual é a principal limitação? Com esses dados posso propor uma solução verificável."
     if intent == "clarification":
-        return "Claro. A minha resposta anterior foi: «" + (last_answer[:850] if last_answer else "ainda não existe uma resposta anterior nesta conversa") + "». Indica a parte que ficou pouco clara e reformulo-a."
-    if intent == "followup" and last_user:
-        return "Estou a acompanhar o assunto anterior: «" + last_user[:220] + "». A última resposta foi: «" + last_answer[:420] + "». Queres aprofundar, corrigir ou avançar para uma decisão?" + memory_hint
-    if memories:
-        return ("Percebo o pedido: «" + message[:500] + "». Ainda não tenho dados suficientes para dar uma resposta segura. "
-                "Posso usar estas notas que guardaste como contexto: " + "; ".join(memories[:4]) +
-                ". Que resultado concreto esperas obter?")
-    if context:
-        return ("Quero responder de forma útil, mas ainda não tenho conhecimento suficiente para concluir apenas com esta mensagem: «" +
-                message[:500] + "». Posso relacioná-la com o tema anterior ou analisar um exemplo concreto. O que é mais importante neste pedido?")
-    return ("Recebi o teu pedido: «" + message[:500] + "». O meu motor próprio ainda está a evoluir e não vou inventar uma resposta quando não tenho base suficiente. "
-            "Dá-me um pouco mais de contexto ou um exemplo do resultado que esperas.")
+        return "Ainda não existe uma resposta anterior disponível no servidor público. Indica a parte que ficou pouco clara e reformulo-a."
+    return ("Recebi o teu pedido: «" + message[:500] + "». Vou procurar a forma mais útil e segura de avançar. "
+            "Para não inventar dados, preciso de um detalhe adicional: qual é o resultado concreto que esperas? "
+            "Com isso, posso dividir o objetivo em etapas e indicar o próximo passo executável.")
 
 
 @app.get("/health")
@@ -187,7 +147,7 @@ def health():
         "trained_model": MODEL_PATH.exists(),
         "external_models": False,
         "features": [
-            "native-intent-routing", "recent-turn-context", "device-memory-context",
+            "native-intent-routing", "stateless-public-chat",
             "dialogue-state", "clarification", "comparison", "planning",
             "learning", "creative-writing-routing", "coding-help-routing",
             "trainable-intent-classifier"
@@ -197,31 +157,22 @@ def health():
 
 @app.post("/v1/chat")
 def chat(payload: ChatInput):
-    connection = db()
-    try:
-        context = recent_context(connection, payload.user_id)
-        intent = classify(payload.message)
-        answer = answer_for(intent, payload.message, context, payload.memory_context)
-        connection.execute(
-            "INSERT INTO memories(user_id, message, answer, intent, created_at) VALUES (?, ?, ?, ?, ?)",
-            (payload.user_id, payload.message, answer, intent, datetime.now(timezone.utc).isoformat())
-        )
-        connection.commit()
-        return {
-            "answer": answer,
-            "intent": intent,
-            "engine": "wyzen-native-dialogue-engine",
-            "context_turns": min(len(context), 8),
-            "memory_notes_used": len(memory_notes(payload.memory_context)),
-            "actions": []
-        }
-    finally:
-        connection.close()
+    # Stateless response: no client-supplied identity, no server history, no personal memory.
+    intent = classify(payload.message)
+    answer = answer_for(intent, payload.message)
+    return {
+        "answer": answer,
+        "intent": intent,
+        "engine": "wyzen-native-dialogue-engine",
+        "context_turns": 0,
+        "memory_notes_used": 0,
+        "actions": []
+    }
 
 
 @app.post("/v1/train")
 def add_training_example(example: TrainingExample, authorization: Optional[str] = Header(default=None)):
-    if not ADMIN_TOKEN or authorization != f"Bearer {ADMIN_TOKEN}":
+    if not ADMIN_TOKEN or not hmac.compare_digest(authorization or "", f"Bearer {ADMIN_TOKEN}"):
         raise HTTPException(status_code=401, detail="Admin authentication required")
     connection = db()
     try:
@@ -238,7 +189,7 @@ def add_training_example(example: TrainingExample, authorization: Optional[str] 
 
 @app.post("/v1/train/model")
 def train_model(authorization: Optional[str] = Header(default=None)):
-    if not ADMIN_TOKEN or authorization != f"Bearer {ADMIN_TOKEN}":
+    if not ADMIN_TOKEN or not hmac.compare_digest(authorization or "", f"Bearer {ADMIN_TOKEN}"):
         raise HTTPException(status_code=401, detail="Admin authentication required")
     connection = db()
     try:

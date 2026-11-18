@@ -1,13 +1,13 @@
 # WYZEN Native Conversational Engine
 
-Servidor próprio da WYZEN: API Python/FastAPI, histórico de diálogo SQLite, regras de conversação e classificador de intenções treinável com exemplos próprios. Não usa OpenAI, ChatGPT nem modelos generativos externos.
+Servidor próprio da WYZEN: API Python/FastAPI, regras de conversação e classificador de intenções treinável com exemplos próprios. Não usa OpenAI, ChatGPT nem modelos generativos externos.
 
 ## Capacidades atuais
 
 - Classificação nativa de saudações, identidade, planeamento, aprendizagem, pesquisa, tradução, opinião, comparação, resumo, escrita, programação, resolução de problemas e pedidos de esclarecimento.
-- Contexto dos últimos oito turnos por identificador de conversa.
-- Recebe notas de memória locais do Android como contexto adicional.
-- Histórico de mensagens e respostas guardado em SQLite.
+- Endpoint público de conversa sem estado: processa apenas a mensagem atual.
+- Histórico e notas pessoais permanecem no dispositivo e não são enviados ao servidor.
+- SQLite é usado apenas para exemplos de treino do classificador.
 - Classificador TF-IDF + regressão logística treinável com exemplos aprovados pelo administrador.
 - Regras de confiança para evitar que previsões fracas do classificador substituam regras de diálogo explícitas.
 
@@ -25,7 +25,7 @@ docker run --env-file .env -p 8000:8000 -v wyzen-data:/app/data wyzen-server
 ## Endpoints
 
 - `GET /health`: estado e capacidades do motor.
-- `POST /v1/chat`: recebe `{"message":"...","user_id":"...","memory_context":"..."}`.
+- `POST /v1/chat`: recebe apenas `{"message":"..."}`; não autentica utilizadores nem guarda conversas.
 - `POST /v1/train`: guarda um exemplo de treino; exige Bearer token de administrador.
 - `POST /v1/train/model`: treina o classificador; exige Bearer token e pelo menos 12 exemplos em 2 intenções.
 
@@ -40,4 +40,8 @@ curl -X POST http://localhost:8000/v1/train \
 
 ## Segurança e operação
 
-Usa HTTPS, token forte para rotas de treino, autenticação individual por utilizador, limites de pedidos, cópias de segurança e monitorização antes de produção. O histórico contém mensagens e respostas, por isso deve ser protegido e ter uma política de retenção. SQLite com WAL é adequado ao protótipo e baixa carga; migrar para PostgreSQL quando a escala justificar.
+Na aplicação Android, memórias, histórico e tarefas usam um adaptador local com AES-256-GCM. A chave aleatória de 256 bits é guardada no Android Keystore através de Expo SecureStore; cada registo usa nonce aleatório e autenticação associada ao nome da chave de armazenamento. Os dados antigos em texto simples são cifrados automaticamente na primeira leitura, sem apagar o conteúdo original antes de a cifragem terminar. A chave não é enviada ao servidor.
+
+A cifragem protege os dados armazenados no dispositivo, mas não substitui o bloqueio do próprio Android nem protege contra um dispositivo comprometido enquanto a aplicação está desbloqueada. Se os dados da aplicação forem restaurados sem a chave guardada no Keystore, os registos cifrados não poderão ser recuperados; por isso, não se deve limpar os dados da aplicação nem reinstalá-la antes de existir uma estratégia de cópia de segurança.
+
+O chat é deliberadamente stateless até existir autenticação individual real. O endpoint continua público e precisa de rate limiting e monitorização antes de produção. As rotas de treino exigem token Bearer comparado em tempo constante. Bases SQLite antigas podem ainda conter conversas de versões anteriores: esta alteração deixa esses registos intocados para evitar apagar dados silenciosamente; a sua retenção ou eliminação deve ser tratada numa migração operacional controlada. Usa HTTPS e nunca coloques segredos no cliente Android.

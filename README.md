@@ -11,6 +11,12 @@ Assistente pessoal Android com voz e texto, com geração conversacional priorit
 
 **Limite importante:** o modelo local é pequeno e pode falhar em raciocínio complexo, factos recentes ou português menos comum. O classificador do servidor não é um LLM. Esta arquitetura executa inferência local sem depender de APIs externas, mas ainda não representa um modelo fundacional treinado pela WYZEN.
 
+## Pesquisa de conhecimento online
+
+A pesquisa geral usa a página pública HTML do DuckDuckGo, sem chave de API, para obter títulos, excertos e ligações. Se a pesquisa geral não devolver resultados utilizáveis, a aplicação recorre à API pública da Wikipédia (MediaWiki), em português e com recurso à versão inglesa quando necessário. Para perguntas estatísticas e de saúde, consulta também as APIs oficiais do Banco Mundial e da OMS quando existe um indicador correspondente. A WYZEN apresenta as fontes e os respetivos links; os resultados são excertos de pesquisa, não uma verificação independente. A disponibilidade e o formato da pesquisa pública podem mudar e devem ser testados no dispositivo e na rede usados.
+
+Além da pesquisa geral, a WYZEN consulta diretamente duas fontes estatísticas oficiais: a API OData do Observatório Global de Saúde da OMS para indicadores de saúde e a API v2 do Banco Mundial para população, PIB, desemprego, pobreza, inflação e esperança de vida. A aplicação procura os indicadores correspondentes, obtém observações recentes e inclui o período e a ligação à fonte. A OMS alerta que algumas estimativas harmonizadas podem diferir das estatísticas nacionais; o ano e a metodologia devem ser considerados.\n\nA ONU continua prevista como próxima integração especializada: a UNdata usa serviços REST/SOAP baseados em SDMX e a Divisão de População mantém um portal de dados e API próprios; a integração exige mapear corretamente os conjuntos de dados e as dimensões antes de apresentar valores.\n\nOs dados estatísticos não substituem orientação clínica, diagnóstico nem aconselhamento profissional. A WYZEN deve identificar a origem, verificar o período e distinguir resultados de pesquisa de confirmação independente.
+
 ## Servidor
 
 Ver `server/README.md` para execução Docker, treino e endpoints.
@@ -76,6 +82,7 @@ O Centro de Controlo inicial está disponível por comandos de voz ou texto:
 - `abre WhatsApp/Facebook/Instagram/TikTok/Gmail/Drive/Calendar/Maps/Google`: tenta abrir a aplicação instalada e usa o endereço oficial como alternativa.
 - `autoriza microfone/contactos/calendário/notificações`: solicita a permissão correspondente ao Android.
 - `abre definições`: abre as definições de permissões da WYZEN.
+- `abre definições de Wi-Fi/Bluetooth/localização/ecrã/som/bateria/aplicações/notificações`: abre o painel oficial correspondente do Android. A WYZEN não altera essas definições silenciosamente; o utilizador decide no sistema.
 
 A abertura de uma aplicação não equivale a acesso à conta nem permite ler ou alterar o seu conteúdo. Para operações dentro de WhatsApp, Meta, TikTok e Google são necessários os respetivos fluxos oficiais de OAuth/API, com permissões e aprovações aplicáveis.
 
