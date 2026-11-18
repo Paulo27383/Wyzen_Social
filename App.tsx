@@ -212,7 +212,7 @@ export default function App() {
           } finally { setBusy(false); }
         }}
       ]);
-      return { status: "completed" };
+      return { status: "uncertain" };
     }
     if (!skipCompound) {
       const compoundPlan = planCompoundCommand(rawValue);
