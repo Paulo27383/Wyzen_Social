@@ -148,10 +148,13 @@ export default function App() {
     if (enrollingVoice) setStatus("Toca no W e repete a frase de ativação");
     else if (continuousEnabled && phase === "ready" && AppState.currentState === "active") {
       setTimeout(() => {
-        try {
-          ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true });
+        startWyzenWakeWord().then(() => {
           setListening(true);
-        } catch { setListening(false); }
+          setStatus("WYZEN pronta — diz “Wyzen” para ativar");
+        }).catch(() => {
+          setListening(false);
+          setStatus("A ativação por palavra precisa de ser reiniciada");
+        });
       }, 500);
     }
   });
