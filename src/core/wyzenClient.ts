@@ -156,7 +156,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       if (answer.trim()) {
         return addressReply({
           answer: knowledgeSources.length
-            ? answer.trim() + "\n\nFontes consultadas (Wikimedia):\n" + knowledgeSources.map((source, index) => (index + 1) + ". " + source.title + " — " + source.url).join("\n")
+            ? answer.trim() + "\n\nFontes consultadas:\n" + knowledgeSources.map((source, index) => (index + 1) + ". " + source.title + " (" + source.provider + ") — " + source.url).join("\n")
             : answer.trim(),
           intent,
           engine: "wyzen-local-llm",
