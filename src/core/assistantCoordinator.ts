@@ -21,6 +21,8 @@ async function readTodayEvents(start: Date, end: Date): Promise<string[]> {
     const events = await Calendar.getEventsAsync(ids, start, end);
     return events
       .filter(event => !event.allDay)
+      .map(event => ({ ...event, startDate: new Date(event.startDate) }))
+      .filter(event => !Number.isNaN(event.startDate.getTime()))
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
       .slice(0, 8)
       .map(event => {
