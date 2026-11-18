@@ -214,7 +214,7 @@ export default function App() {
         setAnswer(message); setStatus("Verificação necessária"); speakWyzen(message, { language: "pt-PT" });
         return { status: "uncertain" };
       }
-      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é "
+      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
         (mission.nextStep + 1) + ": " + (next?.command || "rever o resultado") +
         (needsReplayCheck
           ? ". ATENÇÃO: o resultado anterior não foi confirmado. Repetir pode duplicar a ação. Verifica primeiro se já aconteceu e só confirma se ainda não foi concluída."
@@ -420,10 +420,12 @@ export default function App() {
       setAnswer(result); setStatus("Prioridade atualizada"); speakWyzen(result, { language: "pt-PT" });
       return { status: "completed" };
     }
-    const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
+    const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa(?:\s+(alta|normal|baixa))?\s*[:,-]?\s+(.+)$/i);
     if (addTaskMatch) {
       try {
-        const task = await addTask(addTaskMatch[1]);
+        const priority = addTaskMatch[1]?.toLocaleLowerCase("pt-PT") === "alta" ? "high" :
+          addTaskMatch[1]?.toLocaleLowerCase("pt-PT") === "baixa" ? "low" : "normal";
+        const task = await addTask(addTaskMatch[2], priority);
         const result = "Tarefa guardada: " + task.title;
         setAnswer(result); setStatus("Tarefa criada"); speakWyzen(result, { language: "pt-PT" });
       } catch (e) { const message = e instanceof Error ? e.message : "Não consegui criar a tarefa."; setAnswer(message); setStatus("Erro"); return { status: "failed", error: message }; }
