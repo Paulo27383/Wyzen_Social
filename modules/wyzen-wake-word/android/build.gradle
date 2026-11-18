@@ -20,6 +20,8 @@ repositories {
 
 dependencies {
   implementation project(':expo-modules-core')
-  implementation 'com.github.k2-fsa:sherpa-onnx:v2.0.1'
+  // Use the Android AAR directly. The aggregate Maven POM also pulls sherpa-onnx-jvm,
+  // whose classes duplicate those already packaged in the Android AAR.
+  implementation 'com.github.k2-fsa:sherpa-onnx:v2.0.1@aar'
   implementation 'org.apache.commons:commons-compress:1.27.1'
 }
