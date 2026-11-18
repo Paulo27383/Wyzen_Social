@@ -157,7 +157,6 @@ export default function App() {
       }
     }
     const value = normalizeNaturalCommand(rawValue);
-    const normalized = value.trim().toLocaleLowerCase("pt-PT");
     const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
     if (addTaskMatch) {
       try {
