@@ -17,6 +17,14 @@ const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-a
 const REQUEST_TIMEOUT_MS = 25000;
 
 
+function addressReply(reply: AssistantReply, preferredName: string): AssistantReply {
+  const answer = reply.answer.trim();
+  if (!preferredName || answer.toLocaleLowerCase("pt-PT").includes(preferredName.toLocaleLowerCase("pt-PT"))) {
+    return { ...reply, answer };
+  }
+  return { ...reply, answer: preferredName + ", " + answer };
+}
+
 function localUtilityReply(command: string): AssistantReply {
   const plan = planCommand(command);
   return {
@@ -69,42 +77,44 @@ async function askOwnServer(command: string, intent: string): Promise<AssistantR
  */
 export async function askWyzen(command: string): Promise<AssistantReply> {
   const cleanCommand = command.trim();
+  const initialProfile = await getOwnerProfile();
+  const preferredName = initialProfile.preferredAddress || initialProfile.displayName || "Podolsky";
   if (!cleanCommand) {
-    return { answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" };
+    return addressReply({ answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" }, preferredName);
   }
 
   const calculation = calculateMath(cleanCommand);
   if (calculation.handled) {
-    return {
+    return addressReply({
       answer: calculation.answer || "Não consegui calcular essa operação.",
       intent: "calculation",
       engine: "wyzen-local-calculation-engine",
       modelRequired: false
-    };
+    }, preferredName);
   }
 
   const intent = classifyLocalIntent(cleanCommand);
-  if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+  if (intent === "time" || intent === "date") return addressReply(localUtilityReply(cleanCommand), preferredName);
   if (intent === "greeting") {
     const profile = await getOwnerProfile();
-    return { answer: `Olá, ${profile.preferredAddress || profile.displayName}! Estou aqui. O que vamos fazer hoje?`, intent, engine: "wyzen-personality-core", modelRequired: false };
+    return addressReply({ answer: `Olá, ${profile.preferredAddress || profile.displayName}! Estou aqui. O que vamos fazer hoje?`, intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
   }
   if (intent === "profile") {
-    return { answer: await answerOwnerProfile(cleanCommand), intent, engine: "wyzen-owner-profile", modelRequired: false };
+    return addressReply({ answer: await answerOwnerProfile(cleanCommand), intent, engine: "wyzen-owner-profile", modelRequired: false }, preferredName);
   }
   if (intent === "wyzen_identity") {
-    return { answer: answerWyzenIdentity(cleanCommand), intent, engine: "wyzen-personality-core", modelRequired: false };
+    return addressReply({ answer: answerWyzenIdentity(cleanCommand), intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
   }
   if (intent === "creator") {
-    return { answer: "Foste tu, Podolsky, quem me criou e está a desenvolver a WYZEN AI. Sou a tua assistente pessoal.", intent, engine: "wyzen-personality-core", modelRequired: false };
+    return addressReply({ answer: "Foste tu, Podolsky, quem me criou e está a desenvolver a WYZEN AI. Sou a tua assistente pessoal.", intent, engine: "wyzen-personality-core", modelRequired: false }, preferredName);
   }
   if (await learnOwnerFact(cleanCommand)) {
-    return {
+    return addressReply({
       answer: "Está bem, Podolsky. Guardei essa informação no teu perfil pessoal cifrado e vou usá-la quando for relevante.",
       intent: "profile_update",
       engine: "wyzen-owner-profile",
       modelRequired: false
-    };
+    }, preferredName);
   }
 
   let memories = "";
@@ -136,12 +146,12 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     if (status.downloaded) {
       const answer = await generateLocalResponse(cleanCommand, memories, dialogue);
       if (answer.trim()) {
-        return {
+        return addressReply({
           answer: answer.trim(),
           intent,
           engine: "wyzen-local-llm",
           modelRequired: false
-        };
+        }, preferredName);
       }
       localModelError = "O modelo local devolveu uma resposta vazia.";
     }
@@ -151,11 +161,11 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
 
   try {
     const fallback = await askOwnServer(cleanCommand, intent);
-    return {
+    return addressReply({
       ...fallback,
       engine: fallback.engine || "wyzen-native-dialogue-engine",
       modelRequired: true
-    };
+    }, preferredName);
   } catch (error) {
     const serverError = error instanceof Error && error.name === "AbortError"
       ? "O servidor próprio demorou demasiado a responder."
@@ -163,12 +173,12 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
     const localHint = localModelError
       ? " O modelo local também não ficou disponível: " + localModelError
       : " O modelo generativo local ainda não foi instalado.";
-    return {
+    return addressReply({
       answer: "Neste momento não consegui gerar uma resposta. " + serverError + localHint +
         " Instala ou verifica o modelo local e tenta novamente.",
       intent,
       engine: "wyzen-offline-unavailable",
       modelRequired: true
-    };
+    }, preferredName);
   }
 }
