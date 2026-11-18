@@ -2,7 +2,7 @@
 
 Assistente pessoal Android com voz e texto, ligado a um servidor próprio e a um núcleo de inteligência treinável sem modelos pré-treinados.
 
-## Arquitetura híbrida atual
+## Arquitetura conversacional atual
 
 - **Android (Expo / React Native):** interface, microfone, reconhecimento de voz, leitura de respostas e comandos.
 - **Servidor próprio (Python / FastAPI):** API de conversa, memória SQLite e classificador de intenções.
