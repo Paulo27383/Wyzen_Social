@@ -12,7 +12,7 @@ export type AssistantReply = {
   contextTurns?: number;
 };
 
-const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-ai-server.onrender.com").replace(/\\/+$/, "");
+const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-ai-server.onrender.com").replace(/\/+$/, "");
 const USER_ID_KEY = "wyzen.conversation.user-id.v1";
 const REQUEST_TIMEOUT_MS = 25000;
 
