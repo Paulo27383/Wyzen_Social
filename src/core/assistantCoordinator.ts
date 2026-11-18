@@ -1,5 +1,5 @@
 import * as Calendar from "expo-calendar";
-import { dailyInteractions, recallWyzen } from "./memory";
+import { dailyInteractions, recentInteractions, recallWyzen } from "./memory";
 import { listTasks } from "./tasks";
 
 const normalize = (value: string) => value.toLocaleLowerCase("pt-PT")
@@ -9,6 +9,31 @@ function localDayRange(now: Date): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
   return { start, end };
+}
+
+async function readCalendarEvents(start: Date, end: Date): Promise<{ available: boolean; events: string[] }> {
+  try {
+    const permission = await Calendar.getCalendarPermissionsAsync();
+    if (!permission.granted) return { available: false, events: [] };
+    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    const ids = calendars.map(calendar => calendar.id);
+    if (!ids.length) return { available: true, events: [] };
+    const events = await Calendar.getEventsAsync(ids, start, end);
+    const normalized = events
+      .map(event => ({ ...event, startDate: new Date(event.startDate) }))
+      .filter(event => !Number.isNaN(event.startDate.getTime()))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+      .slice(0, 12)
+      .map(event => {
+        const time = event.allDay
+          ? "Dia inteiro"
+          : new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(event.startDate);
+        return "- " + time + " · " + event.title;
+      });
+    return { available: true, events: normalized };
+  } catch {
+    return { available: false, events: [] };
+  }
 }
 
 async function readTodayEvents(start: Date, end: Date): Promise<string[]> {
@@ -93,6 +118,21 @@ export async function buildDailyPlan(now = new Date()): Promise<string> {
  * Personal history and task data stay on the device.
  */
 export async function resolveContextualFollowUp(input: string): Promise<string | null> {
+  const value = normalize(input.trim());
+
+  if (/^(?:o que tenho|qual e a minha agenda|mostra|consulta) (?:para )?amanha\??$/.test(value) ||
+      /^(?:agenda|compromissos|eventos) de amanha\??$/.test(value)) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const { start, end } = localDayRange(tomorrow);
+    const agenda = await readCalendarEvents(start, end);
+    const label = new Intl.DateTimeFormat("pt-PT", { dateStyle: "full" }).format(tomorrow);
+    if (!agenda.available) return "Não consigo consultar a agenda: a permissão do calendário não está disponível ou ocorreu um erro. Autoriza o calendário nas definições do Android e tenta novamente.";
+    return agenda.events.length
+      ? "AGENDA DE AMANHÃ — " + label + "\\n" + agenda.events.join("\\n")
+      : "Não encontrei compromissos registados no calendário para amanhã (" + label + ").";
+  }
+
   const value = normalize(input.trim());
   if (/^(?:o que combinamos|o que tinhamos combinado|do que estavamos a falar|sobre o que falamos|o que me disseste antes)\??$/.test(value)) {
     const history = await dailyInteractions();
