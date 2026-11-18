@@ -156,29 +156,29 @@ export default function App() {
     Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const runCommand = async (rawValue: string, skipCompound = false) => {
-    if (!rawValue.trim() || (busy && !skipCompound)) return;
+  const runCommand = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
+    if (!rawValue.trim() || (busy && !skipCompound)) return { status: "completed" };
     const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
     if (!skipCompound && /^(?:estado|progresso) (?:da )?miss[aã]o$/.test(missionCommand)) {
       const mission = await getActiveMission();
       if (!mission) {
         const message = "Ainda não existe uma missão guardada. Diz-me o teu objetivo e vou dividi-lo em etapas.";
         setAnswer(message); setStatus("Sem missão guardada"); speakWyzen(message, { language: "pt-PT" });
-        return;
+        return { status: "completed" };
       }
       const labels = { pending: "por iniciar", running: "em curso — confirma se foi concluída", completed: "concluída", failed: "interrompida" };
       const lines = mission.steps.map((step, index) => (index + 1) + ". " + labels[step.status] + " — " + step.command);
       const message = "PROGRESSO DA MISSÃO · " + mission.status.toLocaleUpperCase("pt-PT") + "\n" + lines.join("\n") +
         (mission.status === "completed" ? "\nMissão terminada." : "\nPróximo passo: diz “retoma missão” quando quiseres continuar.");
       setAnswer(message); setStatus("Estado da missão"); speakWyzen("Aqui está o progresso da missão.", { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     if (!skipCompound && /^(?:retoma|continua|prossegue) (?:a )?miss[aã]o$/.test(missionCommand)) {
       const mission = await getActiveMission();
       if (!mission || mission.status === "completed") {
         const message = "Não encontrei uma missão pendente. Diz-me o objetivo e preparo uma nova missão.";
         setAnswer(message); setStatus("Sem missão pendente"); speakWyzen(message, { language: "pt-PT" });
-        return;
+        return { status: "completed" };
       }
       const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
         (mission.nextStep + 1) + ": " + (mission.steps[mission.nextStep]?.command || "rever o resultado") +
@@ -193,7 +193,8 @@ export default function App() {
               activeStep = index;
               setStatus("Missão retomada · etapa " + (index + 1) + " de " + mission.steps.length);
               await updateMissionStep(mission.id, index, "running");
-              await runCommand(mission.steps[index].command, true);
+              const execution = await runCommand(mission.steps[index].command, true);
+              if (execution.status !== "completed") throw new Error(execution.error || "A etapa não foi confirmada.");
               await updateMissionStep(mission.id, index, "completed");
             }
             await finishMission(mission.id);
@@ -207,7 +208,7 @@ export default function App() {
           } finally { setBusy(false); }
         }}
       ]);
-      return;
+      return { status: "completed" };
     }
     if (!skipCompound) {
       const compoundPlan = planCompoundCommand(rawValue);
@@ -229,8 +230,9 @@ export default function App() {
                 activeStep = index;
                 setStatus("Missão em curso · etapa " + (index + 1) + " de " + mission.steps.length);
                 await updateMissionStep(mission.id, index, "running");
-                await runCommand(mission.steps[index].command, true);
-                await updateMissionStep(mission.id, index, "completed");
+                const execution = await runCommand(mission.steps[index].command, true);
+                if (execution.status !== "completed") throw new Error(execution.error || "A etapa não foi confirmada.");
+              await updateMissionStep(mission.id, index, "completed");
               }
               await finishMission(mission.id);
               const summary = "Missão concluída. " + mission.steps.length + " etapas processadas e registadas. Podes pedir “retoma missão” para continuar trabalhos interrompidos.";
@@ -248,7 +250,7 @@ export default function App() {
             }
           }}
         ]);
-        return;
+        return { status: "completed" };
       }
     }
     const value = normalizeNaturalCommand(rawValue);
@@ -259,7 +261,7 @@ export default function App() {
       setStatus("Contexto recuperado localmente");
       await recordInteraction(value, contextualFollowUp, "summary");
       speakWyzen(contextualFollowUp, { language: "pt-PT", rate: 0.95 });
-      return;
+      return { status: "completed" };
     }
     if (isDailyPlanRequest(value)) {
       setBusy(true);
@@ -281,7 +283,7 @@ export default function App() {
       } finally {
         setBusy(false);
       }
-      return;
+      return { status: "completed" };
     }
     if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
       setContinuousEnabled(true);
@@ -289,7 +291,7 @@ export default function App() {
       try { ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true }); setListening(true); }
       catch { setStatus("Não foi possível iniciar a voz contínua"); }
       setAnswer("Modo de palavra-chave ativo. Diz “Wyzen” e depois o teu comando. A escuta funciona enquanto a aplicação estiver aberta e em primeiro plano; em segundo plano ainda é necessário integrar um serviço Android nativo.");
-      return;
+      return { status: "completed" };
     }
     if (/^(desativa|desativar|desliga) voz contínua$/.test(normalized)) {
       setContinuousEnabled(false);
@@ -297,7 +299,7 @@ export default function App() {
       setListening(false);
       setStatus("Voz contínua desativada");
       setAnswer("A escuta contínua foi desligada.");
-      return;
+      return { status: "completed" };
     }
     const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
     if (addTaskMatch) {
@@ -305,28 +307,30 @@ export default function App() {
         const task = await addTask(addTaskMatch[1]);
         const result = "Tarefa guardada: " + task.title;
         setAnswer(result); setStatus("Tarefa criada"); speakWyzen(result, { language: "pt-PT" });
-      } catch (e) { setAnswer(e instanceof Error ? e.message : "Não consegui criar a tarefa."); setStatus("Erro"); }
-      return;
+      } catch (e) { const message = e instanceof Error ? e.message : "Não consegui criar a tarefa."; setAnswer(message); setStatus("Erro"); if (skipCompound) return { status: "failed", error: message }; }
+      return { status: "completed" };
     }
     if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
       const tasks = await listTasks();
       const result = tasks.length ? tasks.map((task, i) => (i + 1) + ". " + (task.completed ? "✓ " : "○ ") + task.title).join("\n") : "Ainda não tens tarefas guardadas.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\s+(.+)$/i);
     if (completeMatch) {
       const task = await completeTask(completeMatch[1]);
+      if (!task && skipCompound) return { status: "failed", error: "Não encontrei a tarefa: " + completeMatch[1] };
       const result = task ? "Tarefa concluída: " + task.title : "Não encontrei essa tarefa.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\s+(.+)$/i);
     if (deleteTaskMatch) {
       const removed = await deleteTask(deleteTaskMatch[1]);
+      if (!removed && skipCompound) return { status: "failed", error: "Não encontrei a tarefa para remover: " + deleteTaskMatch[1] };
       const result = removed ? "Tarefa removida." : "Não encontrei essa tarefa.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     const rememberMatch = value.trim().match(/^(?:lembra-te que|lembra que|guarda na memória|memoriza)\s+(.+)$/i);
     if (rememberMatch) {
@@ -335,36 +339,38 @@ export default function App() {
         const result = "Guardei isso na minha memória deste telemóvel.";
         setAnswer(result); setStatus("Memória atualizada"); speakWyzen(result, { language: "pt-PT" });
       } catch (e) {
-        setAnswer(e instanceof Error ? e.message : "Não consegui guardar essa informação.");
+        const message = e instanceof Error ? e.message : "Não consegui guardar essa informação.";
+        setAnswer(message);
         setStatus("Erro na memória");
+        if (skipCompound) return { status: "failed", error: message };
       }
-      return;
+      return { status: "completed" };
     }
     if (/^(resumo de hoje|resume o meu dia|o que fizemos hoje)$/i.test(value.trim())) {
       const history = await dailyInteractions();
       const result = history.length ? "Resumo do dia: " + history.length + " interações guardadas.\\n" + history.slice(0, 10).map((item, index) => (index + 1) + ". " + item.userText + " — " + item.assistantText.slice(0, 180)).join("\\n") : "Ainda não há interações guardadas hoje.";
       setAnswer(result); setStatus("Resumo diário"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     const memoryQuestion = value.trim().match(/^(?:o que sabes sobre|o que te lembras sobre|procura na memória|consulta a memória sobre)\s+(.+)$/i);
     if (memoryQuestion) {
       const items = await recallWyzen(memoryQuestion[1]);
       const result = items.length ? "Na minha memória encontrei:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Não encontrei essa informação na minha memória.";
       setAnswer(result); setStatus("Memória consultada"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     if (/^(o que te pedi para lembrar|o que tens na memória|consulta a memória|mostra a memória)$/i.test(value.trim())) {
       const items = await recallWyzen();
       const result = items.length ? "Lembro-me de:\n" + items.map((item, index) => (index + 1) + ". " + item.text).join("\n") : "Ainda não guardaste informações na minha memória.";
       setAnswer(result); setStatus("Memória consultada"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     const forgetMatch = value.trim().match(/^(?:esquece|apaga da memória)\s+(.+)$/i);
     if (forgetMatch) {
       const count = await forgetWyzen(forgetMatch[1]);
       const result = count ? "Apaguei " + count + " informação(ões) da memória local." : "Não encontrei essa informação na memória.";
       setAnswer(result); setStatus("Memória atualizada"); speakWyzen(result, { language: "pt-PT" });
-      return;
+      return { status: "completed" };
     }
     if (/^(apaga toda a memória|esquece tudo)$/i.test(value.trim())) {
       Alert.alert("Apagar memória", "Queres apagar todas as informações guardadas neste telemóvel?", [
@@ -375,7 +381,7 @@ export default function App() {
           setAnswer(result); setStatus("Memória apagada"); speakWyzen(result, { language: "pt-PT" });
         }}
       ]);
-      return;
+      return { status: "completed" };
     }
     setBusy(true);
     setAnswer("");
@@ -386,7 +392,7 @@ export default function App() {
         setAnswer(control.message || "Comando do Centro de Controlo concluído.");
         setStatus("Centro de Controlo");
         speakWyzen(control.message || "Concluído", { language: "pt-PT" });
-        return;
+        return { status: "completed" };
       }
       const localAction = parsePhoneCommand(value.trim());
       if (localAction) {
@@ -405,7 +411,7 @@ export default function App() {
             setStatus("Ação não concluída");
           } finally { setBusy(false); }
         });
-        return;
+        return { status: "completed" };
       }
       const namedCall = value.trim().match(/^(?:liga|telefonar|chama)\s+para\s+([\p{L}][\p{L} .'-]{1,60})$/iu);
       const namedSms = value.trim().match(/^(?:sms|mensagem)\s+para\s+([\p{L}][\p{L} .'-]{1,60})\s*[:;,]\s*(.+)$/iu);
@@ -418,7 +424,7 @@ export default function App() {
             setAnswer(prompt);
             setStatus("Preciso de identificar o contacto");
             speakWyzen(prompt, { language: "pt-PT" });
-            return;
+            return { status: "completed" };
           }
           contactName = owner.motherName;
         }
@@ -447,7 +453,7 @@ export default function App() {
             setStatus("Ação não concluída");
           } finally { setBusy(false); }
         });
-        return;
+        return { status: "completed" };
       }
       const contactMatch = value.trim().match(/^(?:procura|encontra|pesquisa) contacto (.+)$/i);
       if (contactMatch) {
@@ -456,7 +462,7 @@ export default function App() {
         setAnswer(result);
         setStatus("Concluído");
         speakWyzen(result, { language: "pt-PT" });
-        return;
+        return { status: "completed" };
       }
       const reply = await askWyzen(value.trim());
       setAnswer(reply.answer);
@@ -468,9 +474,11 @@ export default function App() {
       const message = error instanceof Error ? error.message : "Erro no motor WYZEN.";
       setAnswer(message);
       setStatus("Não foi possível concluir");
+      return { status: "failed", error: message };
     } finally {
       setBusy(false);
     }
+    return { status: "completed" };
   };
 
   const startVoice = async () => {
