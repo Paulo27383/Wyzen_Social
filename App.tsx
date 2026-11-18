@@ -157,8 +157,9 @@ export default function App() {
     Alert.alert("WYZEN AI", event.message || "Não foi possível reconhecer a voz.");
   });
 
-  const runCommand = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
-    if (!rawValue.trim() || (busy && !skipCompound)) return { status: "completed" };
+  const runCommandInternal = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
+    if (!rawValue.trim()) return { status: "completed" };
+    if (busy && !skipCompound) return { status: "failed", error: "A WYZEN já está a executar outro pedido." };
     const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
     if (!skipCompound && /^(?:estado|progresso) (?:da )?miss[aã]o$/.test(missionCommand)) {
       const mission = await getActiveMission();
@@ -340,8 +341,10 @@ export default function App() {
         await recordInteraction(value, result, "summary");
         speakWyzen(result, { language: "pt-PT", rate: 0.95 });
       } catch (error) {
-        setAnswer(error instanceof Error ? error.message : "Não consegui preparar o plano diário.");
+        const message = error instanceof Error ? error.message : "Não consegui preparar o plano diário.";
+        setAnswer(message);
         setStatus("Não foi possível organizar o dia");
+        return { status: "failed", error: message };
       } finally {
         setBusy(false);
       }
@@ -369,7 +372,7 @@ export default function App() {
         const task = await addTask(addTaskMatch[1]);
         const result = "Tarefa guardada: " + task.title;
         setAnswer(result); setStatus("Tarefa criada"); speakWyzen(result, { language: "pt-PT" });
-      } catch (e) { const message = e instanceof Error ? e.message : "Não consegui criar a tarefa."; setAnswer(message); setStatus("Erro"); if (skipCompound) return { status: "failed", error: message }; }
+      } catch (e) { const message = e instanceof Error ? e.message : "Não consegui criar a tarefa."; setAnswer(message); setStatus("Erro"); return { status: "failed", error: message }; }
       return { status: "completed" };
     }
     if (/^(?:lista|mostra|consulta) tarefas$/i.test(value.trim())) {
@@ -404,7 +407,7 @@ export default function App() {
         const message = e instanceof Error ? e.message : "Não consegui guardar essa informação.";
         setAnswer(message);
         setStatus("Erro na memória");
-        if (skipCompound) return { status: "failed", error: message };
+        return { status: "failed", error: message };
       }
       return { status: "completed" };
     }
@@ -542,6 +545,26 @@ export default function App() {
     }
     return { status: "completed" };
   };
+
+  // Registo único de resultados: o mesmo núcleo acompanha comandos simples e etapas de missão.
+  const runCommand = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
+    const result = await runCommandInternal(rawValue, skipCompound);
+    const normalized = rawValue.trim().toLocaleLowerCase("pt-PT");
+    const isMissionPlanner = !skipCompound && planCompoundCommand(rawValue).isCompound;
+    if (rawValue.trim() && !isMissionPlanner) {
+      try {
+        await recordCoreOutcome(
+          skipCompound ? "etapa de missão" : "execução de comando",
+          result.status === "completed" ? "success" : "failure",
+          result.status === "completed" ? normalized.slice(0, 180) : (result.error || "Comando não concluído").slice(0, 180)
+        );
+      } catch {
+        // A falha do registo não altera o resultado real do comando.
+      }
+    }
+    return result;
+  };
+
 
   const startVoice = async () => {
     if (busy || listening) return;
