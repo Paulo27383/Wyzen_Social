@@ -1,0 +1,23 @@
+group = 'com.wyzen.ai.wakeword'
+version = '1.0.0'
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+  namespace "com.wyzen.ai.wakeword"
+  compileSdkVersion safeExtGet("compileSdkVersion", 35)
+  defaultConfig { minSdkVersion safeExtGet("minSdkVersion", 24) }
+}
+
+repositories {
+  google()
+  mavenCentral()
+  maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation 'com.github.k2-fsa:sherpa-onnx:v2.0.1'
+  implementation 'org.apache.commons:commons-compress:1.27.1'
+}
