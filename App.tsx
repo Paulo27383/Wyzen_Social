@@ -159,6 +159,20 @@ export default function App() {
   const runCommand = async (rawValue: string, skipCompound = false) => {
     if (!rawValue.trim() || (busy && !skipCompound)) return;
     const missionCommand = rawValue.trim().toLocaleLowerCase("pt-PT");
+    if (!skipCompound && /^(?:estado|progresso) (?:da )?miss[aã]o$/.test(missionCommand)) {
+      const mission = await getActiveMission();
+      if (!mission) {
+        const message = "Ainda não existe uma missão guardada. Diz-me o teu objetivo e vou dividi-lo em etapas.";
+        setAnswer(message); setStatus("Sem missão guardada"); speakWyzen(message, { language: "pt-PT" });
+        return;
+      }
+      const labels = { pending: "por iniciar", running: "em curso — confirma se foi concluída", completed: "concluída", failed: "interrompida" };
+      const lines = mission.steps.map((step, index) => (index + 1) + ". " + labels[step.status] + " — " + step.command);
+      const message = "PROGRESSO DA MISSÃO · " + mission.status.toLocaleUpperCase("pt-PT") + "\n" + lines.join("\n") +
+        (mission.status === "completed" ? "\nMissão terminada." : "\nPróximo passo: diz “retoma missão” quando quiseres continuar.");
+      setAnswer(message); setStatus("Estado da missão"); speakWyzen("Aqui está o progresso da missão.", { language: "pt-PT" });
+      return;
+    }
     if (!skipCompound && /^(?:retoma|continua|prossegue) (?:a )?miss[aã]o$/.test(missionCommand)) {
       const mission = await getActiveMission();
       if (!mission || mission.status === "completed") {
