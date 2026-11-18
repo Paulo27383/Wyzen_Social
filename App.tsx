@@ -18,6 +18,7 @@ import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyIntera
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
+import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -96,7 +97,11 @@ export default function App() {
       const owner: Profile = { name: name.trim() };
       SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(owner)).then(() =>
         SecureStore.setItemAsync(SESSION_KEY, "active")
-      ).then(() => {
+      ).then(async () => {
+        await updateOwnerProfile({
+          displayName: owner.name,
+          preferredAddress: owner.name.split(/\s+/)[0] || owner.name
+        });
         setProfile(owner);
         setPhase("ready");
         setEnrollingVoice(false);
@@ -342,10 +347,28 @@ export default function App() {
       const namedCall = value.trim().match(/^(?:liga|telefonar|chama)\s+para\s+([\p{L}][\p{L} .'-]{1,60})$/iu);
       const namedSms = value.trim().match(/^(?:sms|mensagem)\s+para\s+([\p{L}][\p{L} .'-]{1,60})\s*[:;,]\s*(.+)$/iu);
       if (namedCall || namedSms) {
-        const phone = await findContact((namedCall || namedSms)![1].trim());
+        let contactName = (namedCall || namedSms)![1].trim();
+        const owner = await getOwnerProfile();
+        if (/^(?:a\s+)?minha\s+mãe$/iu.test(contactName)) {
+          if (!owner.motherName) {
+            const prompt = (owner.preferredAddress || "Podolsky") + ", ainda não sei o nome da tua mãe. Diz-me como ela está guardada nos teus contactos para eu a encontrar.";
+            setAnswer(prompt);
+            setStatus("Preciso de identificar o contacto");
+            speakWyzen(prompt, { language: "pt-PT" });
+            return;
+          }
+          contactName = owner.motherName;
+        }
+        const phone = await findContact(contactName);
         const action = namedCall
           ? { type: "call" as const, phone }
           : { type: "sms" as const, phone, message: namedSms![2].trim() };
+        const announcement = namedCall
+          ? (owner.preferredAddress || "Podolsky") + ", está bem. Vou preparar a chamada para " + contactName + ". Confirma para continuar."
+          : (owner.preferredAddress || "Podolsky") + ", preparei a mensagem para " + contactName + ". Confirma para continuar.";
+        setAnswer(announcement);
+        setStatus("A aguardar confirmação do contacto");
+        speakWyzen(announcement, { language: "pt-PT" });
         setBusy(false);
         confirmPhoneAction(action, async () => {
           setBusy(true);
