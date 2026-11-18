@@ -15,11 +15,32 @@ async function writeTasks(tasks: WyzenTask[]) {
   await AsyncStorage.setItem(KEY, JSON.stringify(tasks));
 }
 
+function findTaskIndex(tasks: WyzenTask[], query: string): number {
+  const q = query.trim().toLocaleLowerCase("pt-PT");
+  if (!q) throw new Error("Indica o nome ou identificador da tarefa.");
+  const exact = tasks.findIndex(task =>
+    task.id === q || task.title.trim().toLocaleLowerCase("pt-PT") === q
+  );
+  if (exact >= 0) return exact;
+  const matches = tasks
+    .map((task, index) => ({ task, index }))
+    .filter(({ task }) => task.title.toLocaleLowerCase("pt-PT").includes(q));
+  if (matches.length > 1) {
+    throw new Error("Encontrei várias tarefas semelhantes. Escreve o título completo da tarefa para evitar alterar a tarefa errada.");
+  }
+  return matches.length === 1 ? matches[0].index : -1;
+}
+
 export async function addTask(title: string): Promise<WyzenTask> {
   const clean = title.trim();
   if (!clean) throw new Error("Indica o nome da tarefa.");
   const tasks = await readTasks();
-  const task = { id: String(Date.now()), title: clean, createdAt: new Date().toISOString(), completed: false };
+  const task = {
+    id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8),
+    title: clean,
+    createdAt: new Date().toISOString(),
+    completed: false
+  };
   tasks.unshift(task);
   await writeTasks(tasks.slice(0, 500));
   return task;
@@ -31,8 +52,7 @@ export async function listTasks(): Promise<WyzenTask[]> {
 
 export async function completeTask(query: string): Promise<WyzenTask | null> {
   const tasks = await readTasks();
-  const q = query.trim().toLocaleLowerCase("pt-PT");
-  const index = tasks.findIndex(task => task.id === q || task.title.toLocaleLowerCase("pt-PT").includes(q));
+  const index = findTaskIndex(tasks, query);
   if (index < 0) return null;
   tasks[index].completed = true;
   await writeTasks(tasks);
@@ -41,9 +61,9 @@ export async function completeTask(query: string): Promise<WyzenTask | null> {
 
 export async function deleteTask(query: string): Promise<boolean> {
   const tasks = await readTasks();
-  const q = query.trim().toLocaleLowerCase("pt-PT");
-  const next = tasks.filter(task => task.id !== q && !task.title.toLocaleLowerCase("pt-PT").includes(q));
-  if (next.length === tasks.length) return false;
-  await writeTasks(next);
+  const index = findTaskIndex(tasks, query);
+  if (index < 0) return false;
+  tasks.splice(index, 1);
+  await writeTasks(tasks);
   return true;
 }
