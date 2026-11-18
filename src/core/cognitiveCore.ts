@@ -97,6 +97,18 @@ export async function learnFromCorrection(correction: string): Promise<LearningR
   return record;
 }
 
+export async function forgetExplicitLearning(query: string): Promise<number> {
+  const items = await readArray<LearningRecord>(LEARNING_KEY);
+  const clean = query.trim().toLocaleLowerCase("pt-PT");
+  if (!clean) {
+    await secureLocalStorage.removeItem(LEARNING_KEY);
+    return items.length;
+  }
+  const kept = items.filter(item => !item.correction.toLocaleLowerCase("pt-PT").includes(clean));
+  await writeBounded(LEARNING_KEY, kept, 300);
+  return items.length - kept.length;
+}
+
 export async function getExplicitLearning(): Promise<LearningRecord[]> {
   return (await readArray<LearningRecord>(LEARNING_KEY)).slice(0, 30);
 }
