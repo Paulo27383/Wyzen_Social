@@ -18,10 +18,15 @@ async function writeTasks(tasks: WyzenTask[]) {
 function findTaskIndex(tasks: WyzenTask[], query: string): number {
   const q = query.trim().toLocaleLowerCase("pt-PT");
   if (!q) throw new Error("Indica o nome ou identificador da tarefa.");
-  const exact = tasks.findIndex(task =>
-    task.id === q || task.title.trim().toLocaleLowerCase("pt-PT") === q
-  );
-  if (exact >= 0) return exact;
+  const byId = tasks.findIndex(task => task.id === q);
+  if (byId >= 0) return byId;
+  const exactMatches = tasks
+    .map((task, index) => ({ task, index }))
+    .filter(({ task }) => task.title.trim().toLocaleLowerCase("pt-PT") === q);
+  if (exactMatches.length === 1) return exactMatches[0].index;
+  if (exactMatches.length > 1) {
+    throw new Error("Existem várias tarefas com esse título. Consulta a lista e identifica a tarefa pretendida.");
+  }
   const matches = tasks
     .map((task, index) => ({ task, index }))
     .filter(({ task }) => task.title.toLocaleLowerCase("pt-PT").includes(q));
