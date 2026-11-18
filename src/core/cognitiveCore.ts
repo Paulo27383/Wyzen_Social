@@ -156,9 +156,11 @@ export async function assessCore(): Promise<CoreAssessment> {
 export async function prepareInitiative(): Promise<string> {
   const tasks = (await listTasks()).filter(task => !task.completed).slice(0, 5);
   if (!tasks.length) return "Não encontrei tarefas pendentes. Se quiseres, diz-me o próximo objetivo e organizo-o contigo.";
-  return "Encontrei " + tasks.length + " tarefa(s) pendente(s):\n" +
-    tasks.map((task, index) => (index + 1) + ". " + task.title).join("\n") +
-    "\nPosso ajudar a definir prioridades e preparar os próximos passos. Não executei nenhuma ação externa.";
+  return "Encontrei " + tasks.length + " tarefa(s) pendente(s), ordenadas por prioridade:\n" +
+    tasks.map((task, index) => (index + 1) + ". [" +
+      (task.priority === "high" ? "ALTA" : task.priority === "low" ? "BAIXA" : "NORMAL") +
+      "] " + task.title).join("\n") +
+    "\nPosso ajudar a preparar os próximos passos. Não executei nenhuma ação externa.";
 }
 
 export async function acceptGoalAsTask(goal: string): Promise<string> {
