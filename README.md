@@ -13,9 +13,9 @@ Assistente pessoal Android com voz e texto, com geração conversacional priorit
 
 ## Pesquisa de conhecimento online
 
-A primeira ligação de pesquisa está integrada no Android através da API pública da Wikipédia (MediaWiki), em português e com recurso à versão inglesa quando necessário. A aplicação obtém excertos de páginas e respetivas ligações; quando o modelo local está disponível, usa esses excertos como contexto e apresenta as fontes consultadas.
+A pesquisa geral está integrada através da API Tavily (pesquisa básica sem chave, sujeita aos limites partilhados do serviço). Para perguntas que exigem pesquisa, a aplicação envia apenas a pergunta, recebe excertos e URLs, e usa esses dados como contexto do modelo local. Se Tavily estiver indisponível ou limitar pedidos, a aplicação recorre à API pública da Wikipédia (MediaWiki), em português e com recurso à versão inglesa quando necessário. As fontes consultadas são apresentadas na resposta.
 
-Esta etapa **não é ainda um motor de pesquisa geral da Internet**: a Wikipédia não substitui fontes oficiais, notícias em tempo real, orientação clínica ou bases estatísticas especializadas. A WYZEN deve identificar a origem e a limitação dos resultados. A integração com motores de pesquisa gerais e fontes oficiais (por exemplo, OMS, ONU e Banco Mundial) fica como etapa seguinte.
+A pesquisa geral amplia a cobertura, mas os excertos não garantem que uma afirmação esteja correta. A WYZEN deve identificar a origem, verificar a data e distinguir resultados de pesquisa de confirmação independente. A integração de conectores dedicados a fontes oficiais (por exemplo, OMS, ONU e Banco Mundial) continua como etapa seguinte.
 
 ## Servidor
 
