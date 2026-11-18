@@ -129,15 +129,14 @@ export async function resolveContextualFollowUp(input: string): Promise<string |
     const label = new Intl.DateTimeFormat("pt-PT", { dateStyle: "full" }).format(tomorrow);
     if (!agenda.available) return "Não consigo consultar a agenda: a permissão do calendário não está disponível ou ocorreu um erro. Autoriza o calendário nas definições do Android e tenta novamente.";
     return agenda.events.length
-      ? "AGENDA DE AMANHÃ — " + label + "\\n" + agenda.events.join("\\n")
+      ? "AGENDA DE AMANHÃ — " + label + "\n" + agenda.events.join("\n")
       : "Não encontrei compromissos registados no calendário para amanhã (" + label + ").";
   }
 
-  const value = normalize(input.trim());
   if (/^(?:o que combinamos|o que tinhamos combinado|do que estavamos a falar|sobre o que falamos|o que me disseste antes)\??$/.test(value)) {
-    const history = await dailyInteractions();
-    if (!history.length) return "Ainda não tenho conversas de hoje guardadas para recuperar. Podes indicar o assunto?";
-    return "RECORDAÇÃO DA CONVERSA DE HOJE\n" + history.slice(0, 8).map((item, index) =>
+    const history = await recentInteractions(7);
+    if (!history.length) return "Ainda não tenho conversas recentes guardadas para recuperar. Podes indicar o assunto?";
+    return "RECORDAÇÃO DAS CONVERSAS RECENTES\n" + history.slice(0, 8).map((item, index) =>
       (index + 1) + ". Tu: " + item.userText + "\n   WYZEN: " + item.assistantText.slice(0, 220)
     ).join("\n");
   }
