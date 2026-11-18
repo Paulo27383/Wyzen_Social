@@ -207,7 +207,11 @@ export default function App() {
       setAnswer("");
       setStatus("A organizar o teu dia com dados locais");
       try {
-        const result = await buildDailyPlan();
+        const plan = await buildDailyPlan();
+        const owner = await getOwnerProfile();
+        const result = plan.toLocaleLowerCase("pt-PT").includes((owner.preferredAddress || owner.displayName).toLocaleLowerCase("pt-PT"))
+          ? plan
+          : (owner.preferredAddress || owner.displayName) + ", " + plan;
         setAnswer(result);
         setStatus("Plano diário preparado — dados mantidos no dispositivo");
         await recordInteraction(value, result, "summary");
