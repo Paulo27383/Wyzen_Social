@@ -20,7 +20,7 @@ export async function rememberWyzen(text: string): Promise<void> {
   const items = await readAll();
   const normalized = value.toLocaleLowerCase("pt-PT");
   const filtered = items.filter(item => item.text.toLocaleLowerCase("pt-PT") !== normalized);
-  filtered.unshift({ id: String(Date.now()), text: value, createdAt: new Date().toISOString() });
+  filtered.unshift({ id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8), text: value, createdAt: new Date().toISOString() });
   await AsyncStorage.setItem(MEMORY_KEY, JSON.stringify(filtered.slice(0, 300)));
 }
 
@@ -62,6 +62,16 @@ export async function recordInteraction(userText: string, assistantText: string,
   await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 500)));
 }
 export async function dailyInteractions(): Promise<DailyInteraction[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  return (await readHistory()).filter(item => item.createdAt.slice(0, 10) === today).slice(0, 30);
+  // Use the device's local calendar day, not UTC, so late-night interactions
+  // are not assigned to the wrong day in different time zones.
+  const localDay = (date: Date) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+  const today = localDay(new Date());
+  return (await readHistory()).filter(item => {
+    const created = new Date(item.createdAt);
+    return !Number.isNaN(created.getTime()) && localDay(created) === today;
+  }).slice(0, 30);
 }
