@@ -86,3 +86,34 @@ export async function buildDailyPlan(now = new Date()): Promise<string> {
 
   return lines.join("\n");
 }
+
+
+/**
+ * Resolve follow-ups from local history without guessing a target.
+ * Personal history and task data stay on the device.
+ */
+export async function resolveContextualFollowUp(input: string): Promise<string | null> {
+  const value = normalize(input.trim());
+  if (/^(?:o que combinamos|o que tinhamos combinado|do que estavamos a falar|sobre o que falamos|o que me disseste antes)\??$/.test(value)) {
+    const history = await dailyInteractions();
+    if (!history.length) return "Ainda não tenho conversas de hoje guardadas para recuperar. Podes indicar o assunto?";
+    return "RECORDAÇÃO DA CONVERSA DE HOJE\n" + history.slice(0, 8).map((item, index) =>
+      (index + 1) + ". Tu: " + item.userText + "\n   WYZEN: " + item.assistantText.slice(0, 220)
+    ).join("\n");
+  }
+
+  if (/\b(?:aquela|essa|esta) tarefa\b|\ba tarefa de que falamos\b/.test(value)) {
+    const tasks = await listTasks();
+    const pending = tasks.filter(task => !task.completed);
+    if (!pending.length) return "Não encontrei tarefas pendentes. Se te referes a uma tarefa já concluída, diz-me o título para a localizar.";
+    return "Percebi que te referes a uma tarefa, mas não vou escolher por adivinhação. Estas são as tarefas pendentes:\n" +
+      pending.slice(0, 10).map((task, index) => (index + 1) + ". " + task.title).join("\n") +
+      "\nIndica o título exato da tarefa que queres consultar ou concluir.";
+  }
+
+  if (/\b(?:aquele|esse|este) compromisso\b|\bo compromisso de que falamos\b/.test(value)) {
+    return "Queres retomar um compromisso, mas preciso de confirmar qual. Diz o título ou a data do evento para eu não confundir compromissos.";
+  }
+
+  return null;
+}
