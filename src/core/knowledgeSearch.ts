@@ -142,7 +142,7 @@ async function requestWorldBank(query: string): Promise<KnowledgeSource[]> {
   const selected = indicators.filter(item => item.terms.test(value)).slice(0, 2);
   if (!selected.length) return [];
   const country = countryCode(query);
-  const results = await Promise.all(selected.map(async item => {
+  const results = await Promise.all(selected.map(async (item): Promise<KnowledgeSource | null> => {
     const url = WB_BASE + "/country/" + country + "/indicator/" + item.code +
       "?format=json&mrnev=5&per_page=5";
     const payload = await fetchJson<WorldBankResponse>(url);
@@ -187,7 +187,7 @@ async function requestWho(query: string): Promise<KnowledgeSource[]> {
   const indicators = (metadata.value || []) as WhoIndicator[];
   const country = countryCode(query);
   const matches = indicators.filter(item => item.IndicatorCode && item.IndicatorName).slice(0, 3);
-  const results = await Promise.all(matches.map(async item => {
+  const results = await Promise.all(matches.map(async (item): Promise<KnowledgeSource | null> => {
     const dataUrl = WHO_BASE + "/" + encodeURIComponent(item.IndicatorCode || "") + "?" +
       new URLSearchParams({
         "$filter": "SpatialDim eq '" + country + "'",
