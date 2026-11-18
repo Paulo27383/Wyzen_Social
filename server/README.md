@@ -40,4 +40,8 @@ curl -X POST http://localhost:8000/v1/train \
 
 ## Segurança e operação
 
+Na aplicação Android, memórias, histórico e tarefas usam um adaptador local com AES-256-GCM. A chave aleatória de 256 bits é guardada no Android Keystore através de Expo SecureStore; cada registo usa nonce aleatório e autenticação associada ao nome da chave de armazenamento. Os dados antigos em texto simples são cifrados automaticamente na primeira leitura, sem apagar o conteúdo original antes de a cifragem terminar. A chave não é enviada ao servidor.
+
+A cifragem protege os dados armazenados no dispositivo, mas não substitui o bloqueio do próprio Android nem protege contra um dispositivo comprometido enquanto a aplicação está desbloqueada. Se os dados da aplicação forem restaurados sem a chave guardada no Keystore, os registos cifrados não poderão ser recuperados; por isso, não se deve limpar os dados da aplicação nem reinstalá-la antes de existir uma estratégia de cópia de segurança.
+
 O chat é deliberadamente stateless até existir autenticação individual real. O endpoint continua público e precisa de rate limiting e monitorização antes de produção. As rotas de treino exigem token Bearer comparado em tempo constante. Bases SQLite antigas podem ainda conter conversas de versões anteriores: esta alteração deixa esses registos intocados para evitar apagar dados silenciosamente; a sua retenção ou eliminação deve ser tratada numa migração operacional controlada. Usa HTTPS e nunca coloques segredos no cliente Android.
