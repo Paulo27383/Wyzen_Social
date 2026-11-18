@@ -210,7 +210,7 @@ export default function App() {
             const reason = error instanceof Error ? error.message : "Falha inesperada";
             const current = mission.steps[activeStep]?.status;
             if (current === "running") await updateMissionStep(mission.id, activeStep, "failed", reason);
-            await recordCoreOutcome("retoma de missão", "failure", reason);
+            await recordCoreOutcome("retoma de missão", mission.steps[activeStep]?.status === "uncertain" ? "uncertain" : "failure", reason);
             setAnswer("A missão ficou interrompida. " + reason + " Podes verificar a etapa e pedir para retomar.");
             setStatus("Missão interrompida");
           } finally { setBusy(false); }
@@ -267,7 +267,7 @@ export default function App() {
                 const current = mission.steps[activeStep]?.status;
                 if (current === "running") await updateMissionStep(mission.id, activeStep, "failed", reason);
               }
-              await recordCoreOutcome("execução de missão", "failure", reason);
+              await recordCoreOutcome("execução de missão", mission?.steps[activeStep]?.status === "uncertain" ? "uncertain" : "failure", reason);
               setAnswer("A missão foi interrompida. " + reason + " O progresso ficou guardado; podes pedir “retoma missão” depois de verificar a última etapa.");
               setStatus("Missão interrompida");
             } finally {
