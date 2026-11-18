@@ -20,6 +20,34 @@ export type CoreOutcome = {
   createdAt: string;
 };
 
+
+export type PlanReview = {
+  approved: boolean;
+  confidence: "high" | "medium" | "low";
+  warnings: string[];
+};
+
+/** A single-core preflight: checks clarity and risk before a compound mission. */
+export function reviewExecutionPlan(commands: string[]): PlanReview {
+  const warnings: string[] = [];
+  if (!commands.length || commands.length > 12) {
+    return { approved: false, confidence: "low", warnings: ["O plano está vazio ou excede o limite de 12 etapas."] };
+  }
+  if (commands.some(command => !command.trim() || command.trim().length > 500)) {
+    return { approved: false, confidence: "low", warnings: ["Existe uma etapa vazia ou demasiado longa."] };
+  }
+  const normalized = commands.map(command => command.trim().toLocaleLowerCase("pt-PT"));
+  if (new Set(normalized).size !== normalized.length) {
+    warnings.push("O plano contém etapas repetidas; revê a sequência antes de executar.");
+    return { approved: false, confidence: "low", warnings };
+  }
+  const sensitive = /\\b(enviar|apagar|eliminar|comprar|pagar|publicar|partilhar|instalar|desinstalar|transferir dinheiro)\\b/i;
+  if (commands.some(command => sensitive.test(command))) {
+    return { approved: false, confidence: "low", warnings: ["O plano contém uma ação sensível que deve ser executada separadamente, com confirmação própria."] };
+  }
+  return { approved: true, confidence: commands.length <= 4 ? "high" : "medium", warnings };
+}
+
 export type CoreAssessment = {
   total: number;
   successful: number;
