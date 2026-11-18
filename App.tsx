@@ -410,6 +410,16 @@ export default function App() {
       setAnswer("A escuta contínua foi desligada.");
       return { status: "completed" };
     }
+    const priorityMatch = value.trim().match(/^(?:define|altera) prioridade (alta|normal|baixa) para tarefa (.+)$/i);
+    if (priorityMatch) {
+      const priority = priorityMatch[1].toLocaleLowerCase("pt-PT") === "alta" ? "high" :
+        priorityMatch[1].toLocaleLowerCase("pt-PT") === "baixa" ? "low" : "normal";
+      const task = await setTaskPriority(priorityMatch[2], priority);
+      if (!task) return { status: "failed", error: "Não encontrei a tarefa indicada." };
+      const result = "Prioridade " + priorityMatch[1].toLocaleLowerCase("pt-PT") + " definida para: " + task.title;
+      setAnswer(result); setStatus("Prioridade atualizada"); speakWyzen(result, { language: "pt-PT" });
+      return { status: "completed" };
+    }
     const addTaskMatch = value.trim().match(/^(?:cria|adiciona|regista) tarefa\s+(.+)$/i);
     if (addTaskMatch) {
       try {
