@@ -168,8 +168,12 @@ export default function App() {
         setAnswer(message); setStatus("Sem missão guardada"); speakWyzen(message, { language: "pt-PT" });
         return { status: "completed" };
       }
-      const labels = { pending: "por iniciar", running: "em curso — confirma se foi concluída", completed: "concluída", failed: "falhou", uncertain: "resultado incerto — verifica antes de repetir" };
-      const lines = mission.steps.map((step, index) => (index + 1) + ". " + labels[step.status] + " — " + step.command);
+      const labels = { pending: "por iniciar", running: "interrompida durante execução — verifica antes de repetir", completed: "concluída", failed: "falhou", uncertain: "resultado incerto — verifica antes de repetir" };
+      const lines = mission.steps.map((step, index) =>
+        (index + 1) + ". " + labels[step.status] +
+        (step.attempts ? " · tentativas: " + step.attempts : "") +
+        " — " + step.command + (step.error ? " · detalhe: " + step.error : "")
+      );
       const message = "PROGRESSO DA MISSÃO · " + mission.status.toLocaleUpperCase("pt-PT") + "\n" + lines.join("\n") +
         (mission.status === "completed" ? "\nMissão terminada." : "\nPróximo passo: diz “retoma missão” quando quiseres continuar.");
       setAnswer(message); setStatus("Estado da missão"); speakWyzen("Aqui está o progresso da missão.", { language: "pt-PT" });
@@ -182,12 +186,16 @@ export default function App() {
         setAnswer(message); setStatus("Sem missão pendente"); speakWyzen(message, { language: "pt-PT" });
         return { status: "completed" };
       }
+      const next = mission.steps[mission.nextStep];
+      const needsReplayCheck = next && (next.status === "uncertain" || next.status === "running");
       const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
-        (mission.nextStep + 1) + ": " + (mission.steps[mission.nextStep]?.command || "rever o resultado") +
-        ". Se a aplicação foi fechada durante uma etapa, confirma o estado dessa etapa antes de continuar. Queres retomar?";
+        (mission.nextStep + 1) + ": " + (next?.command || "rever o resultado") +
+        (needsReplayCheck
+          ? ". ATENÇÃO: o resultado anterior não foi confirmado. Repetir pode duplicar a ação. Verifica primeiro se já aconteceu e só confirma se ainda não foi concluída."
+          : ". Queres retomar a partir desta etapa?");
       Alert.alert("Retomar missão WYZEN", message, [
         { text: "Agora não", style: "cancel" },
-        { text: "Retomar", onPress: async () => {
+        { text: needsReplayCheck ? "Verifiquei — repetir" : "Retomar", onPress: async () => {
           setBusy(true);
           let activeStep = mission.nextStep;
           try {
@@ -394,7 +402,7 @@ export default function App() {
     const completeMatch = value.trim().match(/^(?:conclui|termina|marca como feita) tarefa\s+(.+)$/i);
     if (completeMatch) {
       const task = await completeTask(completeMatch[1]);
-      if (!task && skipCompound) return { status: "failed", error: "Não encontrei a tarefa: " + completeMatch[1] };
+      if (!task) return { status: "failed", error: "Não encontrei a tarefa: " + completeMatch[1] };
       const result = task ? "Tarefa concluída: " + task.title : "Não encontrei essa tarefa.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return { status: "completed" };
@@ -402,7 +410,7 @@ export default function App() {
     const deleteTaskMatch = value.trim().match(/^(?:apaga|elimina|remove) tarefa\s+(.+)$/i);
     if (deleteTaskMatch) {
       const removed = await deleteTask(deleteTaskMatch[1]);
-      if (!removed && skipCompound) return { status: "failed", error: "Não encontrei a tarefa para remover: " + deleteTaskMatch[1] };
+      if (!removed) return { status: "failed", error: "Não encontrei a tarefa para remover: " + deleteTaskMatch[1] };
       const result = removed ? "Tarefa removida." : "Não encontrei essa tarefa.";
       setAnswer(result); setStatus("Tarefas"); speakWyzen(result, { language: "pt-PT" });
       return { status: "completed" };
