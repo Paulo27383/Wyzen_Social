@@ -11,6 +11,12 @@ Assistente pessoal Android com voz e texto, com geração conversacional priorit
 
 **Limite importante:** o modelo local é pequeno e pode falhar em raciocínio complexo, factos recentes ou português menos comum. O classificador do servidor não é um LLM. Esta arquitetura executa inferência local sem depender de APIs externas, mas ainda não representa um modelo fundacional treinado pela WYZEN.
 
+## Pesquisa de conhecimento online
+
+A primeira ligação de pesquisa está integrada no Android através da API pública da Wikipédia (MediaWiki), em português e com recurso à versão inglesa quando necessário. A aplicação obtém excertos de páginas e respetivas ligações; quando o modelo local está disponível, usa esses excertos como contexto e apresenta as fontes consultadas.
+
+Esta etapa **não é ainda um motor de pesquisa geral da Internet**: a Wikipédia não substitui fontes oficiais, notícias em tempo real, orientação clínica ou bases estatísticas especializadas. A WYZEN deve identificar a origem e a limitação dos resultados. A integração com motores de pesquisa gerais e fontes oficiais (por exemplo, OMS, ONU e Banco Mundial) fica como etapa seguinte.
+
 ## Servidor
 
 Ver `server/README.md` para execução Docker, treino e endpoints.
