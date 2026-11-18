@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { classifyLocalIntent, planCommand } from "./assistant";
-import { memoryContext } from "./memory";
+import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 
 export type AssistantReply = {
@@ -88,17 +88,24 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
 
   let memories = "";
+  let dialogue: Array<{ user: string; assistant: string }> = [];
   try {
-    memories = await memoryContext();
+    const [savedMemories, history] = await Promise.all([memoryContext(), recentInteractions(7)]);
+    memories = savedMemories;
+    dialogue = history
+      .filter(item => item.kind === "conversation" || item.kind === "advice")
+      .slice(0, 6)
+      .reverse()
+      .map(item => ({ user: item.userText, assistant: item.assistantText }));
   } catch {
-    // A conversa continua mesmo que a memória local esteja temporariamente indisponível.
+    // A conversa continua mesmo que a memória ou o histórico local estejam indisponíveis.
   }
 
   let localModelError = "";
   try {
     const status = await getLocalModelStatus();
     if (status.downloaded) {
-      const answer = await generateLocalResponse(cleanCommand, memories);
+      const answer = await generateLocalResponse(cleanCommand, memories, dialogue);
       if (answer.trim()) {
         return {
           answer: answer.trim(),
