@@ -41,7 +41,7 @@ export function reviewExecutionPlan(commands: string[]): PlanReview {
     warnings.push("O plano contém etapas repetidas; revê a sequência antes de executar.");
     return { approved: false, confidence: "low", warnings };
   }
-  const sensitive = /\\b(enviar|apagar|eliminar|comprar|pagar|publicar|partilhar|instalar|desinstalar|transferir dinheiro)\\b/i;
+  const sensitive = /\b(enviar|apagar|eliminar|remover|comprar|pagar|publicar|partilhar|instalar|desinstalar|transferir dinheiro|transferência|transferencia|chamada|telefonar|liga para|sms|mensagem|autorizar|autoriza)\b/i;
   if (commands.some(command => sensitive.test(command))) {
     return { approved: false, confidence: "low", warnings: ["O plano contém uma ação sensível que deve ser executada separadamente, com confirmação própria."] };
   }
