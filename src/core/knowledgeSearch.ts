@@ -2,7 +2,8 @@ export type KnowledgeSource = {
   title: string;
   extract: string;
   url: string;
-  language: "pt" | "en";
+  language: "pt" | "en" | "unknown";
+  provider: "Tavily" | "Wikipedia";
 };
 
 type WikiPage = {
@@ -10,6 +11,9 @@ type WikiPage = {
   extract?: string;
   fullurl?: string;
 };
+
+type TavilyResult = { title?: string; url?: string; content?: string; published_date?: string };
+type TavilyResponse = { results?: TavilyResult[]; error?: string };
 
 type WikiResponse = {
   query?: { pages?: WikiPage[] };
@@ -29,6 +33,46 @@ function shouldSearchKnowledge(raw: string): boolean {
   const factualLookup = /^(?:o que e|quem e|quem foi|onde fica|quando foi|qual e a populacao|quantos habitantes|como funciona)\b/.test(value);
 
   return explicitSearch || changingFacts || factualLookup;
+}
+
+async function requestTavily(query: string): Promise<KnowledgeSource[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  const normalized = query.toLocaleLowerCase("pt-PT");
+  const topic = /\\b(hoje|agora|noticia|noticias|ultima|ultimas|recente|recentes|eleicao|eleicoes)\\b/.test(normalized)
+    ? "news"
+    : "general";
+  try {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        query,
+        search_depth: "basic",
+        topic,
+        max_results: MAX_RESULTS,
+        include_answer: false,
+        include_raw_content: false
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error("O motor de pesquisa respondeu com estado " + response.status + ".");
+    const payload = await response.json() as TavilyResponse;
+    if (payload.error) throw new Error(payload.error);
+    return (payload.results || [])
+      .filter(item => typeof item.title === "string" && typeof item.url === "string" && typeof item.content === "string")
+      .slice(0, MAX_RESULTS)
+      .map(item => ({
+        title: (item.title || "").trim(),
+        extract: (item.content || "").trim().slice(0, MAX_EXTRACT_CHARS),
+        url: item.url || "",
+        language: "unknown" as const,
+        provider: "Tavily" as const
+      }))
+      .filter(item => item.title && item.url && item.extract);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function requestWiki(query: string, language: "pt" | "en"): Promise<KnowledgeSource[]> {
@@ -69,7 +113,8 @@ async function requestWiki(query: string, language: "pt" | "en"): Promise<Knowle
         title: (page.title || "").trim(),
         extract: (page.extract || "").trim().slice(0, MAX_EXTRACT_CHARS),
         url: page.fullurl || "",
-        language
+        language,
+        provider: "Wikipedia"
       }));
   } finally {
     clearTimeout(timeout);
@@ -80,8 +125,15 @@ async function requestWiki(query: string, language: "pt" | "en"): Promise<Knowle
 export async function searchKnowledge(rawQuery: string): Promise<KnowledgeSource[]> {
   const query = rawQuery.trim().slice(0, 240);
   if (!shouldSearchKnowledge(query)) return [];
-
   const cleanedQuery = query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:pesquisa|pesquisar|procura(?: na internet)?|busca(?: na internet)?|investiga|faz uma pesquisa)(?:\\s+(?:sobre|por|na internet))?\\s+/i, "").trim() || query;
+
+  try {
+    const webResults = await requestTavily(cleanedQuery);
+    if (webResults.length) return webResults;
+  } catch {
+    // Usa a Wikipédia como alternativa se a pesquisa geral estiver indisponível ou limitada.
+  }
+
   let portuguese: KnowledgeSource[] = [];
   try {
     portuguese = await requestWiki(cleanedQuery, "pt");
