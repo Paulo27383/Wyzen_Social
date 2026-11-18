@@ -108,8 +108,8 @@ export async function answerOwnerProfile(question: string): Promise<string> {
 }
 
 export function answerWyzenIdentity(question: string): string {
-  const value = question.toLocaleLowerCase("pt-PT");
-  if (/o que (?:sou|significo) para ti/.test(value) || /qual e a nossa relacao/.test(value)) {
+  const value = question.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  if (/o que (?:sou|significo) para ti/.test(value) || /o que es para mim/.test(value) || /qual e a nossa relacao/.test(value)) {
     return "És o meu criador e proprietário, Podolsky. Sou a WYZEN AI, a tua assistente pessoal: devo ajudar-te, respeitar as tuas preferências, ser sincera e dizer claramente quando não sei ou não consigo fazer alguma coisa.";
   }
   return "Sou a WYZEN AI, a tua assistente pessoal, criada por ti, Podolsky. O meu papel é conversar contigo, ajudar a organizar a tua vida, responder às tuas perguntas e executar ações no telemóvel quando tenho essa capacidade e as permissões necessárias.";
