@@ -1,4 +1,3 @@
-import * as SecureStore from "expo-secure-store";
 import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
@@ -14,16 +13,8 @@ export type AssistantReply = {
 };
 
 const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-ai-server.onrender.com").replace(/\/+$/, "");
-const USER_ID_KEY = "wyzen.conversation.user-id.v1";
 const REQUEST_TIMEOUT_MS = 25000;
 
-async function getConversationUserId(): Promise<string> {
-  const saved = await SecureStore.getItemAsync(USER_ID_KEY);
-  if (saved) return saved;
-  const created = "android-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
-  await SecureStore.setItemAsync(USER_ID_KEY, created);
-  return created;
-}
 
 function localUtilityReply(command: string): AssistantReply {
   const plan = planCommand(command);
@@ -34,19 +25,15 @@ function localUtilityReply(command: string): AssistantReply {
   };
 }
 
-async function askOwnServer(command: string, intent: string, memories: string): Promise<AssistantReply> {
-  const userId = await getConversationUserId();
+async function askOwnServer(command: string, intent: string): Promise<AssistantReply> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(SERVER_URL + "/v1/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        message: command.trim(),
-        user_id: userId,
-        memory_context: memories
-      }),
+      // Personal memory and conversation history remain on the device.
+      body: JSON.stringify({ message: command.trim() }),
       signal: controller.signal
     });
     if (!response.ok) {
@@ -132,7 +119,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   }
 
   try {
-    const fallback = await askOwnServer(cleanCommand, intent, memories);
+    const fallback = await askOwnServer(cleanCommand, intent);
     return {
       ...fallback,
       engine: fallback.engine || "wyzen-native-dialogue-engine",
