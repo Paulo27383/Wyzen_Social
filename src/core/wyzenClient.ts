@@ -95,6 +95,9 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   if (intent === "wyzen_identity") {
     return { answer: answerWyzenIdentity(cleanCommand), intent, engine: "wyzen-personality-core", modelRequired: false };
   }
+  if (intent === "creator") {
+    return { answer: "Foste tu, Podolsky, quem me criou e está a desenvolver a WYZEN AI. Sou a tua assistente pessoal.", intent, engine: "wyzen-personality-core", modelRequired: false };
+  }
   if (await learnOwnerFact(cleanCommand)) {
     return {
       answer: "Está bem, Podolsky. Guardei essa informação no teu perfil pessoal cifrado e vou usá-la quando for relevante.",
