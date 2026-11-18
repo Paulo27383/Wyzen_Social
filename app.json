@@ -29,10 +29,17 @@
           "speechRecognitionPermission": "WYZEN AI usa reconhecimento de voz para compreender os teus comandos."
         }
       ],
-      ["llama.rn", { "enableOpenCL": false, "forceCxx20": true }],
+      [
+        "llama.rn",
+        {
+          "enableOpenCL": false,
+          "forceCxx20": true
+        }
+      ],
       "expo-contacts",
       "expo-calendar",
-      "expo-notifications"
+      "expo-notifications",
+      "./plugins/withWyzenWakeWord"
     ],
     "extra": {
       "eas": {
