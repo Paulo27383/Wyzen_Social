@@ -22,7 +22,12 @@ export type MissionRecord = {
 };
 
 async function save(mission: MissionRecord): Promise<void> {
-  await secureLocalStorage.setItem(KEY, JSON.stringify(mission));
+  const serialized = JSON.stringify(mission);
+  await secureLocalStorage.setItem(KEY, serialized);
+  const persisted = await secureLocalStorage.getItem(KEY);
+  if (persisted !== serialized) {
+    throw new Error("Não consegui confirmar a gravação do progresso da missão.");
+  }
 }
 
 export async function getActiveMission(): Promise<MissionRecord | null> {
