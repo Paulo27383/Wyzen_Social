@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureLocalStorage as AsyncStorage } from "./secureLocalStorage";
 
 const MEMORY_KEY = "wyzen.memory.v1";
 export type MemoryItem = { id: string; text: string; createdAt: string };
