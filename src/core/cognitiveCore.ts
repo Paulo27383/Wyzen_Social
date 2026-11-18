@@ -60,18 +60,27 @@ export type CoreAssessment = {
 };
 
 async function readArray<T>(key: string): Promise<T[]> {
+  const raw = await secureLocalStorage.getItem(key);
+  if (!raw) return [];
+  let value: unknown;
   try {
-    const raw = await secureLocalStorage.getItem(key);
-    if (!raw) return [];
-    const value = JSON.parse(raw);
-    return Array.isArray(value) ? value as T[] : [];
+    value = JSON.parse(raw);
   } catch {
-    return [];
+    throw new Error("Os dados internos da WYZEN estão ilegíveis. Foram preservados; não vou reinicializar a memória automaticamente.");
   }
+  if (!Array.isArray(value)) {
+    throw new Error("O formato dos dados internos da WYZEN é inválido. Os dados foram preservados.");
+  }
+  return value as T[];
 }
 
 async function writeBounded<T>(key: string, items: T[], limit: number): Promise<void> {
-  await secureLocalStorage.setItem(key, JSON.stringify(items.slice(0, limit)));
+  const serialized = JSON.stringify(items.slice(0, limit));
+  await secureLocalStorage.setItem(key, serialized);
+  const persisted = await secureLocalStorage.getItem(key);
+  if (persisted !== serialized) {
+    throw new Error("A gravação dos dados internos não foi confirmada pelo armazenamento.");
+  }
 }
 
 /**
