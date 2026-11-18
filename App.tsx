@@ -168,7 +168,7 @@ export default function App() {
         setAnswer(message); setStatus("Sem missão guardada"); speakWyzen(message, { language: "pt-PT" });
         return { status: "completed" };
       }
-      const labels = { pending: "por iniciar", running: "em curso — confirma se foi concluída", completed: "concluída", failed: "interrompida" };
+      const labels = { pending: "por iniciar", running: "em curso — confirma se foi concluída", completed: "concluída", failed: "falhou", uncertain: "resultado incerto — verifica antes de repetir" };
       const lines = mission.steps.map((step, index) => (index + 1) + ". " + labels[step.status] + " — " + step.command);
       const message = "PROGRESSO DA MISSÃO · " + mission.status.toLocaleUpperCase("pt-PT") + "\n" + lines.join("\n") +
         (mission.status === "completed" ? "\nMissão terminada." : "\nPróximo passo: diz “retoma missão” quando quiseres continuar.");
@@ -196,7 +196,10 @@ export default function App() {
               setStatus("Missão retomada · etapa " + (index + 1) + " de " + mission.steps.length);
               await updateMissionStep(mission.id, index, "running");
               const execution = await runCommand(mission.steps[index].command, true);
-              if (execution.status !== "completed") throw new Error(execution.error || "A etapa não foi confirmada.");
+              if (execution.status !== "completed") {
+                if (execution.status === "uncertain") await updateMissionStep(mission.id, index, "uncertain", execution.error || "O resultado da etapa não foi confirmado.");
+                throw new Error(execution.error || "A etapa não foi confirmada.");
+              }
               await updateMissionStep(mission.id, index, "completed");
             }
             await finishMission(mission.id);
@@ -205,7 +208,8 @@ export default function App() {
             setAnswer(result); setStatus("Missão concluída"); speakWyzen(result, { language: "pt-PT" });
           } catch (error) {
             const reason = error instanceof Error ? error.message : "Falha inesperada";
-            await updateMissionStep(mission.id, activeStep, "failed", reason);
+            const current = mission.steps[activeStep]?.status;
+            if (current === "running") await updateMissionStep(mission.id, activeStep, "failed", reason);
             await recordCoreOutcome("retoma de missão", "failure", reason);
             setAnswer("A missão ficou interrompida. " + reason + " Podes verificar a etapa e pedir para retomar.");
             setStatus("Missão interrompida");
@@ -244,7 +248,10 @@ export default function App() {
                 setStatus("Missão em curso · etapa " + (index + 1) + " de " + mission.steps.length);
                 await updateMissionStep(mission.id, index, "running");
                 const execution = await runCommand(mission.steps[index].command, true);
-                if (execution.status !== "completed") throw new Error(execution.error || "A etapa não foi confirmada.");
+                if (execution.status !== "completed") {
+                if (execution.status === "uncertain") await updateMissionStep(mission.id, index, "uncertain", execution.error || "O resultado da etapa não foi confirmado.");
+                throw new Error(execution.error || "A etapa não foi confirmada.");
+              }
               await updateMissionStep(mission.id, index, "completed");
               }
               await finishMission(mission.id);
@@ -256,7 +263,10 @@ export default function App() {
               speakWyzen("Missão concluída.", { language: "pt-PT" });
             } catch (error) {
               const reason = error instanceof Error ? error.message : "Erro desconhecido";
-              if (mission) await updateMissionStep(mission.id, activeStep, "failed", reason);
+              if (mission) {
+                const current = mission.steps[activeStep]?.status;
+                if (current === "running") await updateMissionStep(mission.id, activeStep, "failed", reason);
+              }
               await recordCoreOutcome("execução de missão", "failure", reason);
               setAnswer("A missão foi interrompida. " + reason + " O progresso ficou guardado; podes pedir “retoma missão” depois de verificar a última etapa.");
               setStatus("Missão interrompida");
