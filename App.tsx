@@ -11,7 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
-import { buildDailyPlan, isDailyPlanRequest } from "./src/core/assistantCoordinator";
+import { buildDailyPlan, isDailyPlanRequest, resolveContextualFollowUp } from "./src/core/assistantCoordinator";
 import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
@@ -189,6 +189,14 @@ export default function App() {
     }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
+    const contextualFollowUp = await resolveContextualFollowUp(value);
+    if (contextualFollowUp) {
+      setAnswer(contextualFollowUp);
+      setStatus("Contexto recuperado localmente");
+      await recordInteraction(value, contextualFollowUp, "summary");
+      speakWyzen(contextualFollowUp, { language: "pt-PT", rate: 0.95 });
+      return;
+    }
     if (isDailyPlanRequest(value)) {
       setBusy(true);
       setAnswer("");
