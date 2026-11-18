@@ -2,10 +2,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import { initLlama, type LlamaContext } from "llama.rn";
 
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ""}wyzen-models/`;
-const MODEL_FILE = "SmolLM2-360M-Instruct-Q4_K_M.gguf";
+const MODEL_FILE = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
 const MODEL_PATH = MODEL_DIR + MODEL_FILE;
 const MODEL_URL =
-  "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf";
+  "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
 const MIN_MODEL_BYTES = 10 * 1024 * 1024;
 const MAX_HISTORY_MESSAGES = 12;
 
@@ -28,8 +28,8 @@ export async function getLocalModelStatus(): Promise<LocalModelStatus> {
   return {
     available: true,
     downloaded: info.exists && !info.isDirectory && size >= MIN_MODEL_BYTES,
-    model: "SmolLM2 360M Instruct (Q4_K_M)",
-    approximateDownloadMB: 271
+    model: "Qwen2.5 0.5B Instruct (Q4_K_M)",
+    approximateDownloadMB: 398
   };
 }
 
