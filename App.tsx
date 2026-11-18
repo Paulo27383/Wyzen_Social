@@ -551,7 +551,7 @@ export default function App() {
   };
 
   // Registo único de resultados: o mesmo núcleo acompanha comandos simples e etapas de missão.
-  const runCommand = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed"; error?: string }> => {
+  const runCommand = async (rawValue: string, skipCompound = false): Promise<{ status: "completed" | "failed" | "uncertain"; error?: string }> => {
     const result = await runCommandInternal(rawValue, skipCompound);
     const normalized = rawValue.trim().toLocaleLowerCase("pt-PT");
     const isMissionPlanner = !skipCompound && planCompoundCommand(rawValue).isCompound;
