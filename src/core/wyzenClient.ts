@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext, recentInteractions } from "./memory";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
+import { calculateMath } from "./mathEngine";
 
 export type AssistantReply = {
   answer: string;
@@ -82,6 +83,16 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   const cleanCommand = command.trim();
   if (!cleanCommand) {
     return { answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" };
+  }
+
+  const calculation = calculateMath(cleanCommand);
+  if (calculation.handled) {
+    return {
+      answer: calculation.answer || "Não consegui calcular essa operação.",
+      intent: "calculation",
+      engine: "wyzen-local-calculation-engine",
+      modelRequired: false
+    };
   }
 
   const intent = classifyLocalIntent(cleanCommand);
