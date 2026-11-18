@@ -125,7 +125,7 @@ async function requestWiki(query: string, language: "pt" | "en"): Promise<Knowle
 export async function searchKnowledge(rawQuery: string): Promise<KnowledgeSource[]> {
   const query = rawQuery.trim().slice(0, 240);
   if (!shouldSearchKnowledge(query)) return [];
-  const cleanedQuery = query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:pesquisa|pesquisar|procura(?: na internet)?|busca(?: na internet)?|investiga|faz uma pesquisa)(?:\\s+(?:sobre|por|na internet))?\\s+/i, "").trim() || query;
+  const cleanedQuery = query.replace(/^(?:wyzen[, ]+)?(?:por favor[, ]+)?(?:pesquisa|pesquisar|procura(?: na internet)?|busca(?: na internet)?|investiga|faz uma pesquisa)(?:\s+(?:sobre|por|na internet))?\s+/i, "").trim() || query;
 
   try {
     const webResults = await requestTavily(cleanedQuery);
@@ -154,15 +154,15 @@ export async function searchKnowledge(rawQuery: string): Promise<KnowledgeSource
 
 export function buildKnowledgeContext(sources: KnowledgeSource[]): string {
   return sources.slice(0, MAX_RESULTS).map((source, index) =>
-    "[" + (index + 1) + "] " + source.title + " (" + source.language + ")\n" +
+    "[" + (index + 1) + "] " + source.title + " (" + source.provider + (source.language === "unknown" ? "" : ", " + source.language) + ")\n" +
     source.extract + "\nURL: " + source.url
   ).join("\n\n").slice(0, 5600);
 }
 
 export function formatKnowledgeFallback(sources: KnowledgeSource[]): string {
   const excerpts = sources.slice(0, 3).map((source, index) =>
-    (index + 1) + ". " + source.title + "\n" + source.extract + "\nFonte: " + source.url
+    (index + 1) + ". " + source.title + " (" + source.provider + ")\n" + source.extract + "\nFonte: " + source.url
   );
-  return "Encontrei estas páginas na Wikimedia. Ainda não consegui gerar uma síntese com o modelo local, por isso apresento os excertos sem os tratar como uma resposta verificada:\n\n" +
+  return "Encontrei estes resultados de pesquisa. Ainda não consegui gerar uma síntese com o modelo local, por isso apresento os excertos sem os tratar como uma resposta verificada:\n\n" +
     excerpts.join("\n\n");
 }
