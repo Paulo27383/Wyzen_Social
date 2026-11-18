@@ -214,11 +214,9 @@ export default function App() {
         setAnswer(message); setStatus("Verificação necessária"); speakWyzen(message, { language: "pt-PT" });
         return { status: "uncertain" };
       }
-      const message = "Encontrei uma missão com " + mission.steps.length + " etapas. A próxima é " +
-        (mission.nextStep + 1) + ": " + (next?.command || "rever o resultado") +
-        (needsReplayCheck
+      const message = `Encontrei uma missão com ${mission.steps.length} etapas. A próxima é ${mission.nextStep + 1}: ${next?.command || "rever o resultado"}${needsReplayCheck
           ? ". ATENÇÃO: o resultado anterior não foi confirmado. Repetir pode duplicar a ação. Verifica primeiro se já aconteceu e só confirma se ainda não foi concluída."
-          : ". Queres retomar a partir desta etapa?");
+          : ". Queres retomar a partir desta etapa?"}`;
       Alert.alert("Retomar missão WYZEN", message, [
         { text: "Agora não", style: "cancel" },
         { text: needsReplayCheck ? "Verifiquei — repetir" : "Retomar", onPress: async () => {
