@@ -20,7 +20,7 @@ import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
 import { getActiveMission, startMission, updateMissionStep, finishMission } from "./src/core/missionControl";
-import { learnFromCorrection, getExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative } from "./src/core/cognitiveCore";
+import { learnFromCorrection, getExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative, reviewExecutionPlan } from "./src/core/cognitiveCore";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -199,11 +199,13 @@ export default function App() {
               await updateMissionStep(mission.id, index, "completed");
             }
             await finishMission(mission.id);
+            await recordCoreOutcome("retoma de missão", "success", mission.steps.length + " etapas concluídas e registadas.");
             const result = "Missão concluída. Todas as " + mission.steps.length + " etapas foram processadas.";
             setAnswer(result); setStatus("Missão concluída"); speakWyzen(result, { language: "pt-PT" });
           } catch (error) {
             const reason = error instanceof Error ? error.message : "Falha inesperada";
             await updateMissionStep(mission.id, activeStep, "failed", reason);
+            await recordCoreOutcome("retoma de missão", "failure", reason);
             setAnswer("A missão ficou interrompida. " + reason + " Podes verificar a etapa e pedir para retomar.");
             setStatus("Missão interrompida");
           } finally { setBusy(false); }
@@ -214,7 +216,16 @@ export default function App() {
     if (!skipCompound) {
       const compoundPlan = planCompoundCommand(rawValue);
       if (compoundPlan.isCompound && compoundPlan.supported) {
-        const message = compoundPlan.clarification || "Plano preparado. Confirma para continuar.";
+        const review = reviewExecutionPlan(compoundPlan.steps);
+        if (!review.approved) {
+          const message = "Não vou executar este plano sem revisão: " + review.warnings.join(" ");
+          setAnswer(message); setStatus("Plano bloqueado na verificação de segurança");
+          await recordCoreOutcome("raciocínio e segurança", "failure", message);
+          return { status: "failed", error: message };
+        }
+        const message = (compoundPlan.clarification || "Plano preparado. Confirma para continuar.") +
+          "\nVerificação do núcleo: confiança " + review.confidence +
+          (review.warnings.length ? "\nAtenção: " + review.warnings.join(" ") : " · sem riscos detetados nesta verificação.");
         setAnswer(message);
         setStatus("Plano preparado — aguarda confirmação");
         speakWyzen(message, { language: "pt-PT" });
@@ -236,6 +247,7 @@ export default function App() {
               await updateMissionStep(mission.id, index, "completed");
               }
               await finishMission(mission.id);
+              await recordCoreOutcome("execução de missão", "success", mission.steps.length + " etapas concluídas e registadas.");
               const summary = "Missão concluída. " + mission.steps.length + " etapas processadas e registadas. Podes pedir “retoma missão” para continuar trabalhos interrompidos.";
               setAnswer(summary);
               setStatus("Missão concluída");
@@ -244,6 +256,7 @@ export default function App() {
             } catch (error) {
               const reason = error instanceof Error ? error.message : "Erro desconhecido";
               if (mission) await updateMissionStep(mission.id, activeStep, "failed", reason);
+              await recordCoreOutcome("execução de missão", "failure", reason);
               setAnswer("A missão foi interrompida. " + reason + " O progresso ficou guardado; podes pedir “retoma missão” depois de verificar a última etapa.");
               setStatus("Missão interrompida");
             } finally {
