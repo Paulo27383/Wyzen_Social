@@ -1,5 +1,5 @@
 export type LocalIntent =
-  | "greeting" | "creator" | "profile" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
+  | "greeting" | "creator" | "profile" | "wyzen_identity" | "time" | "date" | "help" | "planning" | "learning" | "unknown";
 
 export type CommandResult = {
   title: string;
