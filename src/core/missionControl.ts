@@ -31,33 +31,43 @@ async function save(mission: MissionRecord): Promise<void> {
 }
 
 export async function getActiveMission(): Promise<MissionRecord | null> {
+  const raw = await secureLocalStorage.getItem(KEY);
+  if (!raw) return null;
+  let value: MissionRecord;
   try {
-    const raw = await secureLocalStorage.getItem(KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as MissionRecord;
-    if (!value || typeof value.id !== "string" || !Array.isArray(value.steps) || !value.steps.length || value.steps.length > 12) return null;
-    if (!value.steps.every((step: any) =>
-      step && typeof step.command === "string" &&
-      ["pending", "running", "completed", "failed", "uncertain"].includes(step.status)
-    )) return null;
-    if (!Number.isInteger(value.nextStep) || value.nextStep < 0 || value.nextStep > value.steps.length) return null;
-    if (!["active", "completed", "interrupted"].includes(value.status)) return null;
-    const interruptedIndex = value.steps.findIndex((step: MissionStep) => step.status === "running");
-    if (interruptedIndex >= 0) {
-      value.steps[interruptedIndex] = {
-        ...value.steps[interruptedIndex],
-        status: "uncertain",
-        error: "A aplicação foi encerrada durante esta etapa. Confirma o resultado antes de continuar."
-      };
-      value.nextStep = interruptedIndex;
-      value.status = "interrupted";
-      value.updatedAt = new Date().toISOString();
-      await save(value);
-    }
-    return value;
+    value = JSON.parse(raw) as MissionRecord;
   } catch {
-    return null;
+    throw new Error("O progresso da missão está ilegível. Foi preservado; não vou substituí-lo automaticamente.");
   }
+  const valid = value && typeof value.id === "string" && value.id.length > 0 &&
+    typeof value.title === "string" &&
+    Array.isArray(value.steps) && value.steps.length > 0 && value.steps.length <= 12 &&
+    value.steps.every((step: any) =>
+      step && typeof step.command === "string" && step.command.trim().length > 0 &&
+      step.command.length <= 500 &&
+      ["pending", "running", "completed", "failed", "uncertain"].includes(step.status) &&
+      (step.attempts === undefined || (Number.isInteger(step.attempts) && step.attempts >= 0))
+    ) &&
+    Number.isInteger(value.nextStep) && value.nextStep >= 0 && value.nextStep <= value.steps.length &&
+    ["active", "completed", "interrupted"].includes(value.status) &&
+    typeof value.createdAt === "string" && !Number.isNaN(Date.parse(value.createdAt)) &&
+    typeof value.updatedAt === "string" && !Number.isNaN(Date.parse(value.updatedAt));
+  if (!valid) {
+    throw new Error("O progresso guardado da missão tem dados inválidos. Não vou apagá-lo nem iniciar outra missão por cima.");
+  }
+  const interruptedIndex = value.steps.findIndex((step: MissionStep) => step.status === "running");
+  if (interruptedIndex >= 0) {
+    value.steps[interruptedIndex] = {
+      ...value.steps[interruptedIndex],
+      status: "uncertain",
+      error: "A aplicação foi encerrada durante esta etapa. Confirma o resultado antes de continuar."
+    };
+    value.nextStep = interruptedIndex;
+    value.status = "interrupted";
+    value.updatedAt = new Date().toISOString();
+    await save(value);
+  }
+  return value;
 }
 
 export async function startMission(commands: string[]): Promise<MissionRecord> {
