@@ -16,7 +16,8 @@ const sensitiveTerms = [
 
 export function classifyLocalIntent(raw: string): LocalIntent {
   const value = raw.trim().toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (/\b(quem e podolsky|quem e o podolsky|fala sobre podolsky|perfil de podolsky|quem e podolsky wyzen)\b/.test(value)) return "profile";
+  if (/\b(quem sou eu|qual e o meu nome|quantos anos tenho|qual a minha idade|onde vivo|onde moro|onde resido|quem e a minha mae|nome da minha mae|o que sabes sobre mim|fala sobre mim|perfil de podolsky|quem e podolsky)\b/.test(value)) return "profile";
+  if (/\b(quem es tu|quem e a wyzen|o que es para mim|o que sou para ti|qual e o teu papel|qual e a nossa relacao)\b/.test(value)) return "wyzen_identity";
   if (/\b(quem (te|a) criou|quem criou voce|quem criou você|quem (te|a) fez|quem e o teu criador|quem e seu criador|quem desenvolveu)\b/.test(value)) return "creator";
   if (/^(ola|olá|oi|bom dia|boa tarde|boa noite|hey)\b/.test(value)) return "greeting";
   if (/\b(que horas|horas sao|hora atual|diz as horas)\b/.test(value)) return "time";
