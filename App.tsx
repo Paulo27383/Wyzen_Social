@@ -11,6 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
+import { buildDailyPlan, isDailyPlanRequest } from "./src/core/assistantCoordinator";
 import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
@@ -188,6 +189,24 @@ export default function App() {
     }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
+    if (isDailyPlanRequest(value)) {
+      setBusy(true);
+      setAnswer("");
+      setStatus("A organizar o teu dia com dados locais");
+      try {
+        const result = await buildDailyPlan();
+        setAnswer(result);
+        setStatus("Plano diário preparado — dados mantidos no dispositivo");
+        await recordInteraction(value, result, "summary");
+        speakWyzen(result, { language: "pt-PT", rate: 0.95 });
+      } catch (error) {
+        setAnswer(error instanceof Error ? error.message : "Não consegui preparar o plano diário.");
+        setStatus("Não foi possível organizar o dia");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
       setContinuousEnabled(true);
       setStatus("Voz contínua ativa enquanto a WYZEN estiver aberta");
