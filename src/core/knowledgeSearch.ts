@@ -39,7 +39,7 @@ async function requestTavily(query: string): Promise<KnowledgeSource[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
   const normalized = query.toLocaleLowerCase("pt-PT");
-  const topic = /\\b(hoje|agora|noticia|noticias|ultima|ultimas|recente|recentes|eleicao|eleicoes)\\b/.test(normalized)
+  const topic = /\b(hoje|agora|noticia|noticias|ultima|ultimas|recente|recentes|eleicao|eleicoes)\b/.test(normalized)
     ? "news"
     : "general";
   try {
