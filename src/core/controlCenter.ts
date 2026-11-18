@@ -107,7 +107,7 @@ export async function runControlCommand(input: string): Promise<ControlResult> {
   if (/^(?:centro de controlo|centro de controle|ajuda do centro de controlo)$/i.test(text)) {
     return { handled: true, message: controlCenterHelp() };
   }
-  const settings = text.match(/^(?:abre|abrir|mostra|vai para) (?:as? )?(?:definições|definicoes|configurações|configuracoes) (?:do )?(wi-?fi|bluetooth|localização|localizacao|ecrã|ecra|som|bateria|aplicações|aplicacoes|notificações|notificacoes)$/i);
+  const settings = text.match(/^(?:abre|abrir|mostra|vai para) (?:as? )?(?:definições|definicoes|configurações|configuracoes) (?:(?:do|de) )?(wi-?fi|bluetooth|localização|localizacao|ecrã|ecra|som|bateria|aplicações|aplicacoes|notificações|notificacoes)$/i);
   if (settings) return { handled: true, message: await openAndroidSettings(settings[1]) };
   const open = text.match(/^(?:abre|abrir|inicia|iniciar)\s+(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|maps|google maps|google)$/i);
   if (open) {
