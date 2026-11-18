@@ -3,13 +3,11 @@ export type KnowledgeSource = {
   extract: string;
   url: string;
   language: "pt" | "en" | "unknown";
-  provider: "Tavily" | "Wikipedia" | "OMS" | "Banco Mundial";
+  provider: "DuckDuckGo" | "Wikipedia" | "OMS" | "Banco Mundial";
 };
 
 type WikiPage = { title?: string; extract?: string; fullurl?: string };
 type WikiResponse = { query?: { pages?: WikiPage[] }; error?: { info?: string } };
-type TavilyResult = { title?: string; url?: string; content?: string };
-type TavilyResponse = { results?: TavilyResult[]; error?: string };
 type WhoIndicator = { IndicatorCode?: string; IndicatorName?: string };
 type WhoData = {
   SpatialDim?: string;
@@ -71,29 +69,60 @@ async function fetchJson<T>(url: string, method: "GET" | "POST" = "GET", body?: 
   }
 }
 
-async function requestTavily(query: string): Promise<KnowledgeSource[]> {
-  const normalized = normalize(query);
-  const topic = /\b(hoje|agora|noticia|noticias|ultima|ultimas|recente|recentes|eleicao|eleicoes)\b/.test(normalized) ? "news" : "general";
-  const payload = await fetchJson<TavilyResponse>("https://api.tavily.com/search", "POST", {
-    query,
-    search_depth: "basic",
-    topic,
-    max_results: MAX_RESULTS,
-    include_answer: false,
-    include_raw_content: false
-  });
-  if (payload.error) throw new Error(payload.error);
-  return (payload.results || [])
-    .filter(item => typeof item.title === "string" && typeof item.url === "string" && typeof item.content === "string")
-    .slice(0, MAX_RESULTS)
-    .map(item => ({
-      title: (item.title || "").trim(),
-      extract: (item.content || "").trim().slice(0, MAX_EXTRACT_CHARS),
-      url: item.url || "",
-      language: "unknown" as const,
-      provider: "Tavily" as const
-    }))
-    .filter(item => item.title && item.url && item.extract);
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCharCode(Number.parseInt(code, 16)));
+}
+
+function stripHtml(value: string): string {
+  return decodeHtml(value.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ")).trim();
+}
+
+function resolveSearchUrl(raw: string): string {
+  const decoded = decodeHtml(raw);
+  const match = decoded.match(/[?&]uddg=([^&]+)/);
+  const target = match ? decodeURIComponent(match[1].replace(/\\+/g, "%20")) : decoded;
+  return target.startsWith("http://") ? "https://" + target.slice(7) : target;
+}
+
+async function requestWebSearch(query: string): Promise<KnowledgeSource[]> {
+  const url = "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "text/html,application/xhtml+xml" },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error("A pesquisa na Internet respondeu com estado " + response.status + ".");
+    const html = await response.text();
+    const anchors = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi));
+    const snippets = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\\s\\S]*?)<\\/a>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\\s\\S]*?)<\\/div>/gi));
+    const results: KnowledgeSource[] = [];
+    for (let index = 0; index < anchors.length && results.length < MAX_RESULTS; index += 1) {
+      const item = anchors[index];
+      const title = stripHtml(item[2] || "");
+      const target = resolveSearchUrl(item[1] || "");
+      const snippet = stripHtml(snippets[index]?.[1] || snippets[index]?.[2] || "");
+      if (!title || !snippet || !/^https:\\/\\//i.test(target)) continue;
+      results.push({
+        title: title.slice(0, 180),
+        extract: snippet.slice(0, MAX_EXTRACT_CHARS),
+        url: target,
+        language: "unknown",
+        provider: "DuckDuckGo"
+      });
+    }
+    return results;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function requestWiki(query: string, language: "pt" | "en"): Promise<KnowledgeSource[]> {
@@ -227,7 +256,7 @@ export async function searchKnowledge(rawQuery: string): Promise<KnowledgeSource
   if (!shouldSearchKnowledge(query)) return [];
   const cleanedQuery = cleanQuery(query);
   const [general, who, worldBank] = await Promise.all([
-    requestTavily(cleanedQuery).catch(() => [] as KnowledgeSource[]),
+    requestWebSearch(cleanedQuery).catch(() => [] as KnowledgeSource[]),
     requestWho(cleanedQuery).catch(() => [] as KnowledgeSource[]),
     requestWorldBank(cleanedQuery).catch(() => [] as KnowledgeSource[])
   ]);
