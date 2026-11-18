@@ -20,6 +20,7 @@ import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
 import { getActiveMission, startMission, updateMissionStep, finishMission } from "./src/core/missionControl";
+import { learnFromCorrection, getExplicitLearning, recordCoreOutcome, assessCore, prepareInitiative } from "./src/core/cognitiveCore";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -255,6 +256,45 @@ export default function App() {
     }
     const value = normalizeNaturalCommand(rawValue);
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
+    const correctionMatch = value.trim().match(/^(?:corrige(?: a wyzen)?|aprende com esta corre[cç][aã]o)\\s*[:,-]?\\s*(.+)$/i);
+    if (correctionMatch) {
+      try {
+        const learned = await learnFromCorrection(correctionMatch[1]);
+        const result = "Correção guardada na aprendizagem explícita: " + learned.correction + ". Vou tratá-la como orientação confirmada nas próximas interações compatíveis. Não alterei o modelo nem as regras de segurança.";
+        setAnswer(result); setStatus("Aprendizagem atualizada"); speakWyzen("Correção guardada.", { language: "pt-PT" });
+        await recordCoreOutcome("aprendizagem", "success", "Correção explícita guardada.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Não consegui guardar a correção.";
+        setAnswer(message); setStatus("Aprendizagem não atualizada");
+        await recordCoreOutcome("aprendizagem", "failure", message);
+      }
+      return { status: "completed" };
+    }
+    if (/^(?:o que aprendeste comigo|mostra as corre[cç][oõ]es|consulta aprendizagem)$/i.test(value.trim())) {
+      const items = await getExplicitLearning();
+      const result = items.length
+        ? "Aprendizagem confirmada por ti:\\n" + items.map((item, index) => (index + 1) + ". " + item.correction).join("\\n")
+        : "Ainda não guardaste correções explícitas. Podes dizer: “Corrige a WYZEN: ...”.";
+      setAnswer(result); setStatus("Aprendizagem consultada"); speakWyzen(result, { language: "pt-PT" });
+      return { status: "completed" };
+    }
+    if (/^(?:avalia o teu desempenho|diagn[oó]stico do n[uú]cleo|estado interno da wyzen)$/i.test(value.trim())) {
+      const report = await assessCore();
+      const rate = report.successRate === null ? "ainda sem amostra suficiente" : report.successRate + "% de registos bem-sucedidos";
+      const result = "AUTOAVALIAÇÃO WYZEN\\nExecuções registadas: " + report.total +
+        "\\nSucessos: " + report.successful + " · Falhas: " + report.failed + " · Incertos: " + report.uncertain +
+        "\\nTaxa observada: " + rate + "\\nCorreções explícitas aprendidas: " + report.learningCount +
+        "\\nTarefas pendentes: " + report.pendingTasks +
+        (report.recent.length ? "\\nÚltimos registos:\\n" + report.recent.map(item => "• " + item.capability + " — " + item.result + ": " + item.detail).join("\\n") : "");
+      setAnswer(result); setStatus("Autoavaliação concluída"); speakWyzen("Autoavaliação concluída.", { language: "pt-PT" });
+      return { status: "completed" };
+    }
+    if (/^(?:analisa|rev[eê]) (?:as )?(?:minhas )?tarefas pendentes|o que devo priorizar$/i.test(value.trim())) {
+      const result = await prepareInitiative();
+      setAnswer(result); setStatus("Iniciativa preparada"); speakWyzen(result, { language: "pt-PT" });
+      await recordCoreOutcome("iniciativa", "success", "Análise de tarefas pendentes preparada.");
+      return { status: "completed" };
+    }
     const contextualFollowUp = await resolveContextualFollowUp(value);
     if (contextualFollowUp) {
       setAnswer(contextualFollowUp);
