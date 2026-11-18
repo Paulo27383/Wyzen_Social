@@ -52,15 +52,15 @@ A primeira integração deverá suportar pelo menos `arm64-v8a`; adicionar `arme
 ## Plano de implementação e validação
 
 - [ ] Confirmar a ABI e a versão Android do dispositivo de teste.
-- [ ] Fixar uma release oficial sherpa-onnx e validar AAR/JNI para as ABIs alvo.
-- [ ] Criar um Expo config plugin que injete o serviço, permissões, módulo nativo e dependências no prebuild.
-- [ ] Implementar o Foreground Service com ciclo de vida, notificação e botão de paragem.
-- [ ] Integrar KWS e carregar a keyword personalizada “WYZEN”.
-- [ ] Testar falsos positivos/negativos em português de Angola, ruído ambiente, ecrã apagado e outras aplicações abertas.
-- [ ] Integrar reconhecimento de comandos em português sem captura concorrente do microfone.
+- [x] Fixar a release sherpa-onnx v2.0.1 via JitPack (ainda falta validar a resolução Gradle e as ABIs no build).
+- [x] Criar módulo Expo local, config plugin, permissões e serviço Android em primeiro plano.
+- [x] Implementar o Foreground Service, notificação persistente e API nativa start/stop.
+- [x] Integrar sherpa-onnx KWS, descarregar modelo inglês GigaSpeech int8 sob pedido e configurar keyword “wyzen”.
+- [ ] Testar falsos positivos/negativos com pronúncia de Angola, ruído ambiente, ecrã apagado e outras aplicações abertas.
+- [x] Ligar a deteção à escuta de comandos pt-PT no JS, libertando primeiro o AudioRecord do KWS.
 - [ ] Medir CPU, RAM, bateria e temperatura no dispositivo real.
 - [ ] Só depois de testes passar, iniciar build EAS APK e entregar para instalação.
 
-## Critério de conclusão
+## Estado da implementação (18-11-2026)\n\nA primeira integração de código foi gravada na branch: módulo Expo local `modules/wyzen-wake-word`, serviço Kotlin `WyzenWakeWordService`, plugin `plugins/withWyzenWakeWord.js` e ligação em `App.tsx`. O modelo inglês é usado apenas para a palavra de ativação; após a deteção, o serviço liberta o microfone e o reconhecimento de comandos passa para `pt-PT`. O modelo é descarregado na primeira ativação para armazenamento privado do app.\n\n**Ainda não foi compilado nem executado num dispositivo.** A integração depende de confirmar a resolução JitPack/Expo autolinking, permissões Android, extração do arquivo e qualidade real da deteção. Não considerar a função pronta até esses testes passarem.\n\n## Critério de conclusão
 
 A funcionalidade só pode ser marcada como pronta quando a notificação persistente, deteção real de “WYZEN” em segundo plano e passagem para reconhecimento do comando tiverem sido observadas num dispositivo físico. Uma compilação bem-sucedida, isoladamente, não prova que o microfone ou a deteção funcionem.
