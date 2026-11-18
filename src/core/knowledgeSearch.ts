@@ -76,18 +76,18 @@ function decodeHtml(value: string): string {
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
-    .replace(/&#(\\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCharCode(Number.parseInt(code, 16)));
 }
 
 function stripHtml(value: string): string {
-  return decodeHtml(value.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ")).trim();
+  return decodeHtml(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).trim();
 }
 
 function resolveSearchUrl(raw: string): string {
   const decoded = decodeHtml(raw);
   const match = decoded.match(/[?&]uddg=([^&]+)/);
-  const target = match ? decodeURIComponent(match[1].replace(/\\+/g, "%20")) : decoded;
+  const target = match ? decodeURIComponent(match[1].replace(/\+/g, "%20")) : decoded;
   return target.startsWith("http://") ? "https://" + target.slice(7) : target;
 }
 
@@ -102,15 +102,15 @@ async function requestWebSearch(query: string): Promise<KnowledgeSource[]> {
     });
     if (!response.ok) throw new Error("A pesquisa na Internet respondeu com estado " + response.status + ".");
     const html = await response.text();
-    const anchors = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi));
-    const snippets = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\\s\\S]*?)<\\/a>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\\s\\S]*?)<\\/div>/gi));
+    const anchors = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi));
+    const snippets = Array.from(html.matchAll(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/gi));
     const results: KnowledgeSource[] = [];
     for (let index = 0; index < anchors.length && results.length < MAX_RESULTS; index += 1) {
       const item = anchors[index];
       const title = stripHtml(item[2] || "");
       const target = resolveSearchUrl(item[1] || "");
       const snippet = stripHtml(snippets[index]?.[1] || snippets[index]?.[2] || "");
-      if (!title || !snippet || !/^https:\\/\\//i.test(target)) continue;
+      if (!title || !snippet || !/^https:\/\//i.test(target)) continue;
       results.push({
         title: title.slice(0, 180),
         extract: snippet.slice(0, MAX_EXTRACT_CHARS),
