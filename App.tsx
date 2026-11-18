@@ -19,6 +19,7 @@ import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
 import { getOwnerProfile, updateOwnerProfile } from "./src/core/ownerProfile";
+import WyzenCommandDeck from "./src/components/WyzenCommandDeck";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -47,6 +48,7 @@ export default function App() {
   const [modelDownloadMB, setModelDownloadMB] = useState(398);
   const [modelBusy, setModelBusy] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
+  const [commandDeckVisible, setCommandDeckVisible] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
 
@@ -498,14 +500,7 @@ export default function App() {
 
   const openSystems = () => {
     if (busy) return;
-    Alert.alert("SISTEMAS WYZEN", "Escolhe uma ferramenta do núcleo:", [
-      { text: "Tarefas", onPress: () => runQuickAction("mostra tarefas") },
-      { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
-      { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
-      { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
-      { text: modelReady ? "Cérebro local instalado" : `Instalar cérebro local · ${modelDownloadMB} MB`, onPress: () => { if (!modelReady) installLocalModel(); } },
-      { text: "Fechar", style: "cancel" }
-    ]);
+    setCommandDeckVisible(true);
   };
 
   const executeCommand = () => {
@@ -570,6 +565,18 @@ export default function App() {
           <Text style={styles.footer}>ASSISTENTE PESSOAL • WYZEN AI</Text>
         </View>
       </TouchableWithoutFeedback>
+      <WyzenCommandDeck
+        visible={commandDeckVisible}
+        busy={busy}
+        listening={listening}
+        voiceEnabled={continuousEnabled}
+        modelReady={modelReady}
+        onClose={() => setCommandDeckVisible(false)}
+        onCommand={(value) => {
+          setCommandDeckVisible(false);
+          runQuickAction(value);
+        }}
+      />
     </SafeAreaView>
   );
 }
