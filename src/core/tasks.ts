@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureLocalStorage as AsyncStorage } from "./secureLocalStorage";
 
 const KEY = "wyzen.tasks.v1";
 export type WyzenTask = { id: string; title: string; createdAt: string; completed: boolean };
