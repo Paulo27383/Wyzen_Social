@@ -513,7 +513,6 @@ export default function App() {
                 <TextInput value={name} onChangeText={setName} placeholder="O teu nome"
                   placeholderTextColor="#68718A" autoCapitalize="words" style={styles.nameInput} />
                 <Text style={styles.phrase}>Frase de ativação: “{WAKE_PHRASE}”</Text>
-                <Text style={styles.hint}>Esta frase é apenas uma palavra-chave de configuração. Não é autenticação biométrica nem impede outra pessoa de abrir a aplicação.</Text>
               </View>
             )}
             {phase === "ready" && !!answer && (
@@ -541,7 +540,7 @@ export default function App() {
               </View>
             </View>
           )}
-          <Text style={styles.footer}>ASSISTENTE PESSOAL • PERFIL LOCAL • BLOQUEIO DO ANDROID RECOMENDADO</Text>
+          <Text style={styles.footer}>ASSISTENTE PESSOAL • WYZEN AI</Text>
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
