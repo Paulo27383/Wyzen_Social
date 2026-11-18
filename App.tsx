@@ -17,6 +17,7 @@ import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyIntera
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
 import { runControlCommand } from "./src/core/controlCenter";
 import { parsePhoneCommand, performPhoneAction, confirmPhoneAction, findContact } from "./src/core/phoneActions";
+import { addWakeWordListener, startWyzenWakeWord, stopWyzenWakeWord } from "./src/native/wyzenWakeWord";
 
 const PROFILE_KEY = "wyzen.owner.profile.v1";
 const SESSION_KEY = "wyzen.owner.session.v1";
@@ -78,6 +79,20 @@ export default function App() {
     boot();
     return () => animation.stop();
   }, [pulse]);
+
+  useEffect(() => {
+    const subscription = addWakeWordListener(() => {
+      if (AppState.currentState !== "active") return;
+      setStatus("Wyzen detetada. Estou a ouvir o teu comando em português.");
+      try {
+        ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: false });
+        setListening(true);
+      } catch {
+        setStatus("Wyzen detetada, mas não foi possível iniciar o reconhecimento em português.");
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   useSpeechRecognitionEvent("result", event => {
     const transcript = event.results?.[0]?.transcript?.trim();
@@ -188,15 +203,23 @@ export default function App() {
     const normalized = value.trim().toLocaleLowerCase("pt-PT");
     if (/^(ativa|ativar|liga) (?:a )?(?:voz contínua|palavra-chave|palavra chave|ativação por palavra-chave)$/.test(normalized)) {
       setContinuousEnabled(true);
-      setStatus("Voz contínua ativa enquanto a WYZEN estiver aberta");
-      try { ExpoSpeechRecognitionModule.start({ lang: "pt-PT", interimResults: false, continuous: true }); setListening(true); }
-      catch { setStatus("Não foi possível iniciar a voz contínua"); }
-      setAnswer("Modo de palavra-chave ativo. Diz “Wyzen” e depois o teu comando. A escuta funciona enquanto a aplicação estiver aberta e em primeiro plano; em segundo plano ainda é necessário integrar um serviço Android nativo.");
+      try {
+        await startWyzenWakeWord();
+        setStatus("WYZEN ativa — palavra de ativação em segundo plano");
+        setListening(true);
+        setAnswer("A WYZEN está a detetar “Wyzen” localmente. Quando reconhecer a palavra, passa a ouvir o teu comando em português.");
+      } catch (error) {
+        setContinuousEnabled(false);
+        const reason = error instanceof Error ? error.message : "Não foi possível iniciar o serviço de ativação.";
+        setStatus("Não foi possível ativar a escuta em segundo plano");
+        setAnswer(reason);
+      }
       return;
     }
     if (/^(desativa|desativar|desliga) voz contínua$/.test(normalized)) {
       setContinuousEnabled(false);
       try { ExpoSpeechRecognitionModule.stop(); } catch { /* já parada */ }
+      try { await stopWyzenWakeWord(); } catch { /* serviço já parado */ }
       setListening(false);
       setStatus("Voz contínua desativada");
       setAnswer("A escuta contínua foi desligada.");
