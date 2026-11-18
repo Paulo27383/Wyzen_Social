@@ -41,7 +41,10 @@ export async function getActiveMission(): Promise<MissionRecord | null> {
 }
 
 export async function startMission(commands: string[]): Promise<MissionRecord> {
-  if (!commands.length) throw new Error("A missão não tem etapas.");
+  if (!commands.length || commands.length > 12) throw new Error("A missão deve conter entre 1 e 12 etapas.");
+  if (commands.some(command => typeof command !== "string" || !command.trim() || command.trim().length > 500)) {
+    throw new Error("Cada etapa deve conter um comando válido com até 500 caracteres.");
+  }
   const now = new Date().toISOString();
   const mission: MissionRecord = {
     id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8),
