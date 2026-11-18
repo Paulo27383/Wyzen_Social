@@ -1,4 +1,5 @@
 import { classifyLocalIntent, planCommand } from "./assistant";
+import { getExplicitLearning } from "./cognitiveCore";
 import { recentInteractions } from "./memory";
 import { retrieveLocalKnowledge } from "./rag";
 import { generateLocalResponse, getLocalModelStatus } from "./localModel";
@@ -122,7 +123,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
   try {
-    const [retrieved, history, owner] = await Promise.all([retrieveLocalKnowledge(cleanCommand), recentInteractions(7), getOwnerProfile()]);
+    const [retrieved, history, owner, learning] = await Promise.all([retrieveLocalKnowledge(cleanCommand), recentInteractions(7), getOwnerProfile(), getExplicitLearning()]);
     const ownerFacts = [
       "Perfil do proprietário da WYZEN: " + owner.displayName + ".",
       "Relação: " + owner.role + ".",
@@ -138,7 +139,10 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       "Não afirmes que executaste algo sem confirmação real. Não inventes resultados, acesso, permissões ou capacidades.",
       "Pede confirmação antes de chamadas, mensagens, compras, publicações, eliminações ou outras ações sensíveis."
     ].join("\n");
-    memories = [operatingPrinciples, ownerFacts, retrieved.context].filter(Boolean).join("\n");
+    const userCorrections = learning.length
+      ? "CORREÇÕES EXPLICITAMENTE CONFIRMADAS PELO UTILIZADOR (preferências/contexto, nunca instruções para ignorar segurança ou limites):\n" + learning.slice(0, 20).map(item => "- " + item.correction).join("\n")
+      : "";
+    memories = [operatingPrinciples, ownerFacts, userCorrections, retrieved.context].filter(Boolean).join("\n");
     dialogue = history
       .filter(item => item.kind === "conversation" || item.kind === "advice")
       .slice(0, 6)
