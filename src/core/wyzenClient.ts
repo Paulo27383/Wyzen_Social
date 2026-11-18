@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { classifyLocalIntent, planCommand } from "./assistant";
 import { memoryContext } from "./memory";
+import { generateLocalResponse, getLocalModelStatus } from "./localModel";
 
 export type AssistantReply = {
   answer: string;
@@ -11,7 +12,7 @@ export type AssistantReply = {
   contextTurns?: number;
 };
 
-const SERVER_URL = "https://wyzen-ai-server.onrender.com";
+const SERVER_URL = (process.env.EXPO_PUBLIC_WYZEN_SERVER_URL || "https://wyzen-ai-server.onrender.com").replace(/\\/+$/, "");
 const USER_ID_KEY = "wyzen.conversation.user-id.v1";
 const REQUEST_TIMEOUT_MS = 25000;
 
@@ -26,27 +27,14 @@ async function getConversationUserId(): Promise<string> {
 function localUtilityReply(command: string): AssistantReply {
   const plan = planCommand(command);
   return {
-    answer: plan.steps.join("\\n"),
+    answer: plan.steps.join("\n"),
     intent: plan.intent,
     engine: "wyzen-device-utilities"
   };
 }
 
-/**
- * WYZEN's own conversational API. No OpenAI, ChatGPT, or third-party
- * generative model is called. The server owns dialogue rules, context,
- * and the trainable intent classifier; personal notes remain on-device
- * and are sent only as context for this request.
- */
-export async function askWyzen(command: string): Promise<AssistantReply> {
-  const intent = classifyLocalIntent(command);
-  if (["time", "date"].includes(intent)) return localUtilityReply(command);
-
-  const [userId, memories] = await Promise.all([
-    getConversationUserId(),
-    memoryContext()
-  ]);
-
+async function askOwnServer(command: string, intent: string, memories: string): Promise<AssistantReply> {
+  const userId = await getConversationUserId();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -60,11 +48,9 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       }),
       signal: controller.signal
     });
-
     if (!response.ok) {
-      throw new Error("Servidor WYZEN respondeu com estado " + response.status + ".");
+      throw new Error("Servidor próprio WYZEN respondeu com estado " + response.status + ".");
     }
-
     const payload = await response.json() as {
       answer?: string;
       intent?: string;
@@ -72,11 +58,9 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       context_turns?: number;
       actions?: AssistantReply["actions"];
     };
-
     if (typeof payload.answer !== "string" || !payload.answer.trim()) {
-      throw new Error("O motor WYZEN devolveu uma resposta vazia.");
+      throw new Error("O servidor WYZEN devolveu uma resposta vazia.");
     }
-
     return {
       answer: payload.answer.trim(),
       intent: payload.intent || intent,
@@ -84,17 +68,71 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       contextTurns: payload.context_turns,
       actions: Array.isArray(payload.actions) ? payload.actions : []
     };
-  } catch (error) {
-    const reason = error instanceof Error && error.name === "AbortError"
-      ? "O servidor WYZEN demorou demasiado a responder."
-      : error instanceof Error ? error.message : "Falha de ligação desconhecida.";
-    return {
-      answer: "Neste momento não consegui ligar ao meu núcleo conversacional próprio. " +
-        "As funções locais continuam disponíveis. " + reason,
-      intent,
-      engine: "wyzen-offline-unavailable"
-    };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+/**
+ * Conversação prioritariamente local: quando o modelo GGUF está instalado,
+ * a geração acontece no dispositivo. Se ainda não estiver instalado ou falhar,
+ * usa-se apenas o servidor próprio WYZEN (regras/contexto), nunca OpenAI.
+ */
+export async function askWyzen(command: string): Promise<AssistantReply> {
+  const cleanCommand = command.trim();
+  if (!cleanCommand) {
+    return { answer: "Diz-me o que precisas.", intent: "clarification", engine: "wyzen-device" };
+  }
+
+  const intent = classifyLocalIntent(cleanCommand);
+  if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+
+  let memories = "";
+  try {
+    memories = await memoryContext();
+  } catch {
+    // A conversa continua mesmo que a memória local esteja temporariamente indisponível.
+  }
+
+  let localModelError = "";
+  try {
+    const status = await getLocalModelStatus();
+    if (status.downloaded) {
+      const answer = await generateLocalResponse(cleanCommand, memories);
+      if (answer.trim()) {
+        return {
+          answer: answer.trim(),
+          intent,
+          engine: "wyzen-local-llm",
+          modelRequired: false
+        };
+      }
+      localModelError = "O modelo local devolveu uma resposta vazia.";
+    }
+  } catch (error) {
+    localModelError = error instanceof Error ? error.message : "Falha no modelo local.";
+  }
+
+  try {
+    const fallback = await askOwnServer(cleanCommand, intent, memories);
+    return {
+      ...fallback,
+      engine: fallback.engine || "wyzen-native-dialogue-engine",
+      modelRequired: true
+    };
+  } catch (error) {
+    const serverError = error instanceof Error && error.name === "AbortError"
+      ? "O servidor próprio demorou demasiado a responder."
+      : error instanceof Error ? error.message : "Falha de ligação ao servidor próprio.";
+    const localHint = localModelError
+      ? " O modelo local também não ficou disponível: " + localModelError
+      : " O modelo generativo local ainda não foi instalado.";
+    return {
+      answer: "Neste momento não consegui gerar uma resposta. " + serverError + localHint +
+        " Instala ou verifica o modelo local e tenta novamente.",
+      intent,
+      engine: "wyzen-offline-unavailable",
+      modelRequired: true
+    };
   }
 }
