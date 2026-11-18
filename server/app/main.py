@@ -1,5 +1,6 @@
 import os
 import re
+import hmac
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,9 +20,8 @@ app = FastAPI(title="WYZEN Native Conversational Engine", version="0.3.0")
 
 
 class ChatInput(BaseModel):
+    # Public chat is stateless until per-user authentication exists.
     message: str = Field(min_length=1, max_length=4000)
-    user_id: str = Field(default="android-user", min_length=1, max_length=100)
-    memory_context: str = Field(default="", max_length=12000)
 
 
 class TrainingExample(BaseModel):
@@ -32,18 +32,8 @@ class TrainingExample(BaseModel):
 def db():
     connection = sqlite3.connect(DB_PATH, timeout=15)
     connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute("""CREATE TABLE IF NOT EXISTS memories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        message TEXT NOT NULL,
-        answer TEXT NOT NULL,
-        intent TEXT NOT NULL DEFAULT 'conversation',
-        created_at TEXT NOT NULL
-    )""")
-    # Migrate databases created by earlier WYZEN server versions.
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(memories)")}
-    if "intent" not in columns:
-        connection.execute("ALTER TABLE memories ADD COLUMN intent TEXT NOT NULL DEFAULT 'conversation'")
+    # Conversation content is no longer stored on the server.
+    # Existing legacy memories tables are left untouched; see server/README.md.
     connection.execute("""CREATE TABLE IF NOT EXISTS training_examples (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         text TEXT NOT NULL,
@@ -102,19 +92,6 @@ def classify(text: str) -> str:
     if len(value.split()) <= 5:
         return "followup"
     return "conversation"
-
-
-def recent_context(connection, user_id: str):
-    rows = connection.execute(
-        "SELECT message, answer, intent FROM memories WHERE user_id=? ORDER BY id DESC LIMIT 8",
-        (user_id,)
-    ).fetchall()
-    return list(reversed(rows))
-
-
-def memory_notes(memory_context: str):
-    return [line.strip()[2:] for line in memory_context.splitlines()
-            if line.strip().startswith("- ")][:12]
 
 
 def answer_for(intent: str, message: str, context, memory_context: str = "") -> str:
@@ -197,31 +174,22 @@ def health():
 
 @app.post("/v1/chat")
 def chat(payload: ChatInput):
-    connection = db()
-    try:
-        context = recent_context(connection, payload.user_id)
-        intent = classify(payload.message)
-        answer = answer_for(intent, payload.message, context, payload.memory_context)
-        connection.execute(
-            "INSERT INTO memories(user_id, message, answer, intent, created_at) VALUES (?, ?, ?, ?, ?)",
-            (payload.user_id, payload.message, answer, intent, datetime.now(timezone.utc).isoformat())
-        )
-        connection.commit()
-        return {
-            "answer": answer,
-            "intent": intent,
-            "engine": "wyzen-native-dialogue-engine",
-            "context_turns": min(len(context), 8),
-            "memory_notes_used": len(memory_notes(payload.memory_context)),
-            "actions": []
-        }
-    finally:
-        connection.close()
+    # Stateless response: no client-supplied identity, no server history, no personal memory.
+    intent = classify(payload.message)
+    answer = answer_for(intent, payload.message, [])
+    return {
+        "answer": answer,
+        "intent": intent,
+        "engine": "wyzen-native-dialogue-engine",
+        "context_turns": 0,
+        "memory_notes_used": 0,
+        "actions": []
+    }
 
 
 @app.post("/v1/train")
 def add_training_example(example: TrainingExample, authorization: Optional[str] = Header(default=None)):
-    if not ADMIN_TOKEN or authorization != f"Bearer {ADMIN_TOKEN}":
+    if not ADMIN_TOKEN or not hmac.compare_digest(authorization or "", f"Bearer {ADMIN_TOKEN}"):
         raise HTTPException(status_code=401, detail="Admin authentication required")
     connection = db()
     try:
