@@ -71,6 +71,28 @@ async function readArray<T>(key: string): Promise<T[]> {
   if (!Array.isArray(value)) {
     throw new Error("O formato dos dados internos da WYZEN é inválido. Os dados foram preservados.");
   }
+  const valid = value.every((item: any) => {
+    if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id ||
+        typeof item.createdAt !== "string" || Number.isNaN(Date.parse(item.createdAt))) return false;
+    if (key === LEARNING_KEY) {
+      return typeof item.correction === "string" && item.correction.trim().length >= 4 &&
+        item.correction.length <= 600 &&
+        item.source === "explicit_user_correction" && item.status === "accepted";
+    }
+    if (key === OUTCOME_KEY) {
+      return typeof item.capability === "string" && item.capability.length <= 60 &&
+        ["success", "failure", "uncertain"].includes(item.result) &&
+        typeof item.detail === "string" && item.detail.length <= 240;
+    }
+    return false;
+  });
+  if (!valid) {
+    throw new Error("A memória cognitiva contém registos inválidos. Preservei os dados e interrompi a operação para evitar corrupção silenciosa.");
+  }
+  const ids = value.map((item: any) => item.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("A memória cognitiva contém identificadores duplicados. Os dados foram preservados para revisão.");
+  }
   return value as T[];
 }
 
@@ -112,10 +134,17 @@ export async function forgetExplicitLearning(query: string): Promise<number> {
   const clean = query.trim().toLocaleLowerCase("pt-PT");
   if (!clean) {
     await secureLocalStorage.removeItem(LEARNING_KEY);
+    if (await secureLocalStorage.getItem(LEARNING_KEY) !== null) {
+      throw new Error("Não consegui confirmar a eliminação das correções guardadas.");
+    }
     return items.length;
   }
   const kept = items.filter(item => !item.correction.toLocaleLowerCase("pt-PT").includes(clean));
   await writeBounded(LEARNING_KEY, kept, 300);
+  const persisted = await readArray<LearningRecord>(LEARNING_KEY);
+  if (persisted.length !== kept.length || persisted.some(item => item.correction.toLocaleLowerCase("pt-PT").includes(clean))) {
+    throw new Error("Não consegui confirmar a remoção das correções selecionadas.");
+  }
   return items.length - kept.length;
 }
 
