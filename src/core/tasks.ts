@@ -4,15 +4,37 @@ const KEY = "wyzen.tasks.v1";
 export type WyzenTask = { id: string; title: string; createdAt: string; completed: boolean; priority?: "low" | "normal" | "high" };
 
 async function readTasks(): Promise<WyzenTask[]> {
+  const raw = await AsyncStorage.getItem(KEY);
+  if (!raw) return [];
+  let parsed: unknown;
   try {
-    const raw = await AsyncStorage.getItem(KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Os dados das tarefas estão ilegíveis. Não vou substituí-los automaticamente para evitar perda de informação.");
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("O formato das tarefas guardadas é inválido. Os dados foram preservados para recuperação.");
+  }
+  const valid = parsed.every((task: any) =>
+    task && typeof task.id === "string" && task.id.length > 0 &&
+    typeof task.title === "string" && task.title.trim().length > 0 &&
+    typeof task.createdAt === "string" && !Number.isNaN(Date.parse(task.createdAt)) &&
+    typeof task.completed === "boolean" &&
+    (task.priority === undefined || ["low", "normal", "high"].includes(task.priority))
+  );
+  if (!valid) {
+    throw new Error("Existem tarefas com dados inválidos. Não vou descartar registos automaticamente.");
+  }
+  return parsed as WyzenTask[];
 }
 
-async function writeTasks(tasks: WyzenTask[]) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(tasks));
+async function writeTasks(tasks: WyzenTask[]): Promise<void> {
+  const serialized = JSON.stringify(tasks);
+  await AsyncStorage.setItem(KEY, serialized);
+  const persisted = await AsyncStorage.getItem(KEY);
+  if (persisted !== serialized) {
+    throw new Error("A gravação das tarefas não foi confirmada pelo armazenamento.");
+  }
 }
 
 function findTaskIndex(tasks: WyzenTask[], query: string): number {
