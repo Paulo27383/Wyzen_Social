@@ -5,7 +5,7 @@ Assistente pessoal Android com voz e texto, com geração conversacional priorit
 ## Arquitetura conversacional atual
 
 - **Android (Expo / React Native):** interface, microfone, reconhecimento de voz, leitura de respostas e comandos.
-- **Modelo local (llama.rn):** quando instalado, o modelo GGUF SmolLM2 360M Instruct gera as respostas no Android, com histórico curto de conversa e notas de memória locais.
+- **Modelo local (llama.rn):** quando instalado, o modelo GGUF Qwen2.5 0.5B Instruct gera as respostas no Android, com histórico curto de conversa e notas de memória locais.
 - **Servidor próprio (Python / FastAPI):** alternativa de apoio com regras de diálogo, contexto SQLite e classificador de intenções treinável.
 - **Sem APIs de IA externas:** a aplicação não envia conversas para ChatGPT, OpenAI ou outros serviços de inferência. O ficheiro do modelo é descarregado do Hugging Face; os pesos base são de um modelo aberto de terceiros, não foram treinados de raiz pela WYZEN.
 
@@ -41,7 +41,7 @@ npm run typecheck
 npx expo start
 ```
 
-A geração local requer que o utilizador descarregue o modelo (cerca de 271 MB) e que o dispositivo tenha memória e capacidade de processamento suficientes. A voz requer build nativa Android e permissões. O APK ainda não foi compilado ou testado num dispositivo físico.
+A geração local requer que o utilizador descarregue o modelo (cerca de 398 MB) e que o dispositivo tenha memória e capacidade de processamento suficientes. A voz requer build nativa Android e permissões. O APK ainda não foi compilado ou testado num dispositivo físico.
 
 ## Compilação Android
 
