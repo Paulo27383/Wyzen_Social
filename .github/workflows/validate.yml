@@ -2,7 +2,7 @@ name: Validate WYZEN
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/android-wake-word-foundation]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,3 +34,30 @@ jobs:
         run: pip install -r server/requirements.txt
       - name: Compile Python modules
         run: python -m compileall -q server/app
+
+
+  build-apk:
+    name: Build Android APK after validation
+    needs: [android, server]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/android-wake-word-foundation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Verify Expo token is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Configura o secret EXPO_TOKEN nas definições do repositório GitHub."
+            exit 1
+          fi
+      - name: Build preview APK with EAS
+        run: npx eas-cli@latest build --platform android --profile preview --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
