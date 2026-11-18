@@ -75,3 +75,16 @@ export async function dailyInteractions(): Promise<DailyInteraction[]> {
     return !Number.isNaN(created.getTime()) && localDay(created) === today;
   }).slice(0, 30);
 }
+
+
+/** Recent local conversation history across days, newest first. */
+export async function recentInteractions(days = 7): Promise<DailyInteraction[]> {
+  const safeDays = Math.max(1, Math.min(30, Math.floor(days) || 7));
+  const cutoff = Date.now() - safeDays * 24 * 60 * 60 * 1000;
+  return (await readHistory())
+    .filter(item => {
+      const timestamp = new Date(item.createdAt).getTime();
+      return Number.isFinite(timestamp) && timestamp >= cutoff && timestamp <= Date.now();
+    })
+    .slice(0, 60);
+}
