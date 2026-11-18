@@ -7,6 +7,16 @@ const KEY_STORAGE_NAME = "wyzen.local.data.key.v1";
 const ENVELOPE_PREFIX = "wyzen.enc.v1:";
 const NONCE_BYTES = 12;
 let keyPromise: Promise<Uint8Array> | null = null;
+const pendingOperations = new Map<string, Promise<unknown>>();
+
+function serializeByKey<T>(storageKey: string, operation: () => Promise<T>): Promise<T> {
+  const previous = pendingOperations.get(storageKey) ?? Promise.resolve();
+  const current = previous.then(operation, operation);
+  pendingOperations.set(storageKey, current);
+  return current.finally(() => {
+    if (pendingOperations.get(storageKey) === current) pendingOperations.delete(storageKey);
+  });
+}
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -24,20 +34,25 @@ function hexToBytes(value: string): Uint8Array {
 }
 
 function utf8ToBytes(value: string): Uint8Array {
-  const encoded = unescape(encodeURIComponent(value));
-  const result = new Uint8Array(encoded.length);
+  const encoded = encodeURIComponent(value);
+  const bytes: number[] = [];
   for (let index = 0; index < encoded.length; index += 1) {
-    result[index] = encoded.charCodeAt(index);
+    if (encoded[index] === "%") {
+      bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
+      index += 2;
+    } else {
+      bytes.push(encoded.charCodeAt(index));
+    }
   }
-  return result;
+  return Uint8Array.from(bytes);
 }
 
 function bytesToUtf8(value: Uint8Array): string {
-  let binary = "";
+  let encoded = "";
   for (let index = 0; index < value.length; index += 1) {
-    binary += String.fromCharCode(value[index]);
+    encoded += "%" + value[index].toString(16).padStart(2, "0");
   }
-  return decodeURIComponent(escape(binary));
+  return decodeURIComponent(encoded);
 }
 
 async function getEncryptionKey(): Promise<Uint8Array> {
@@ -85,25 +100,29 @@ async function decrypt(value: string, storageKey: string): Promise<string> {
  * The AES key is stored separately in Android Keystore through SecureStore.
  */
 export const secureLocalStorage = {
-  async getItem(storageKey: string): Promise<string | null> {
-    const stored = await AsyncStorage.getItem(storageKey);
-    if (stored === null) return null;
-    if (stored.startsWith(ENVELOPE_PREFIX)) {
-      return decrypt(stored, storageKey);
-    }
+  getItem(storageKey: string): Promise<string | null> {
+    return serializeByKey(storageKey, async () => {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored === null) return null;
+      if (stored.startsWith(ENVELOPE_PREFIX)) {
+        return decrypt(stored, storageKey);
+      }
 
-    // Lazy migration: preserve the old value unless encryption succeeds.
-    const encrypted = await encrypt(stored, storageKey);
-    await AsyncStorage.setItem(storageKey, encrypted);
-    return stored;
+      // Lazy migration: preserve the old value unless encryption succeeds.
+      const encrypted = await encrypt(stored, storageKey);
+      await AsyncStorage.setItem(storageKey, encrypted);
+      return stored;
+    });
   },
 
-  async setItem(storageKey: string, value: string): Promise<void> {
-    const encrypted = await encrypt(value, storageKey);
-    await AsyncStorage.setItem(storageKey, encrypted);
+  setItem(storageKey: string, value: string): Promise<void> {
+    return serializeByKey(storageKey, async () => {
+      const encrypted = await encrypt(value, storageKey);
+      await AsyncStorage.setItem(storageKey, encrypted);
+    });
   },
 
   removeItem(storageKey: string): Promise<void> {
-    return AsyncStorage.removeItem(storageKey);
+    return serializeByKey(storageKey, () => AsyncStorage.removeItem(storageKey));
   }
 };
