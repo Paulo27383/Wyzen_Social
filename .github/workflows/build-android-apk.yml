@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   build:
-    name: Build installable Android debug APK
+    name: Build standalone Android release APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -65,14 +65,19 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
+      - name: Build standalone release APK (includes JavaScript bundle)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload installable APK
+      - name: Verify APK and embedded JavaScript bundle
+        run: |
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -q 'assets/index.android.bundle'
+
+      - name: Upload standalone release APK
         uses: actions/upload-artifact@v4
         with:
-          name: wyzen-ai-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: wyzen-ai-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
