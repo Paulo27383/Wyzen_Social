@@ -79,47 +79,51 @@ export function planCommand(raw: string): CommandResult {
  * phrases. Ambiguous requests are deliberately left untouched for conversation.
  */
 export function normalizeNaturalCommand(raw: string): string {
-  const value = raw.trim().replace(/\s+/g, " ");
+  const value = raw.trim().replace(/\\s+/g, " ");
+  const plain = value.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
   let match: RegExpMatchArray | null;
 
-  // Tasks: create, list, complete and remove.
-  match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta) (?:uma )?tarefa(?: para| de| chamada)?\s+(.+)$/i);
+  // Tasks: accept natural requests, but keep the task title intact.
+  match = value.match(/^(?:wyzen[, ]+)?(?:cria|adiciona|regista|acrescenta|adiciona-me)\\s+(?:uma?\\s+)?tarefa(?:\\s+(?:para|de|chamada|com o nome))?\\s+(.+)$/i);
   if (match) return "cria tarefa " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:marca|assinala|dá como) (?:a )?tarefa (.+?) como (?:concluída|concluida|feita|terminada)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:lembra-me de|nao te esquecas de|não te esqueças de)\\s+(.+)$/i);
+  if (match && !/\\s+(?:as|às)\\s+\\d{1,2}[:h]\\d{2}$/i.test(match[1])) return "cria tarefa " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:marca|assinala|da|dá)\\s+(?:a\\s+)?tarefa\\s+(.+?)\\s+como\\s+(?:concluida|concluída|feita|terminada)$/i);
   if (match) return "conclui tarefa " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:termina|conclui|finaliza) (?:a )?tarefa (.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:termina|conclui|finaliza|completa)\\s+(?:a\\s+)?tarefa\\s+(.+)$/i);
   if (match) return "conclui tarefa " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:apaga|elimina|remove) (?:a )?tarefa (.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:apaga|elimina|remove|cancela)\\s+(?:a\\s+)?tarefa\\s+(.+)$/i);
   if (match) return "apaga tarefa " + match[1].trim();
-  if (/^(?:wyzen[, ]+)?(?:mostra|lista|consulta|quais são|quais sao) (?:as )?(?:minhas )?tarefas$/i.test(value) ||
-      /^(?:wyzen[, ]+)?o que tenho para fazer$/i.test(value)) return "lista tarefas";
+  if (/^(?:wyzen[, ]+)?(?:mostra|lista|consulta|quais sao|quais são|diz-me|diz)\\s+(?:as\\s+)?(?:minhas\\s+)?tarefas$/.test(plain) ||
+      /^(?:wyzen[, ]+)?o que tenho para fazer$/.test(plain)) return "lista tarefas";
 
   // Personal memory.
-  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|não te esqueças de|nao te esquecas de) (?:que\s+)?(.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:guarda|memoriza|lembra-te de|nao te esquecas de|não te esqueças de)\\s+(?:que\\s+)?(.+)$/i);
   if (match) return "guarda na memória " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:o que sabes|o que te lembras) sobre (.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:o que sabes|o que te lembras|recorda-te)\\s+sobre\\s+(.+)$/i);
   if (match) return "o que sabes sobre " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:esquece|apaga da memória|remove da memória) (.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:esquece|apaga da memoria|apaga da memória|remove da memoria|remove da memória)\\s+(.+)$/i);
   if (match) return "esquece " + match[1].trim();
-  if (/^(?:wyzen[, ]+)?(?:mostra|consulta|abre) (?:a )?memória$/i.test(value)) return "consulta a memória";
+  if (/^(?:wyzen[, ]+)?(?:mostra|consulta|abre|o que tens na)\\s+(?:a\\s+)?memoria$/.test(plain)) return "consulta a memória";
 
-  // App launch and contacts.
-  match = value.match(/^(?:wyzen[, ]+)?(?:abre|abres|inicia|inicias|entra no|entra na) (?:a |o )?(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendário|calendario|maps|google maps|google)$/i);
+  // Apps and permissions.
+  match = value.match(/^(?:wyzen[, ]+)?(?:abre|inicia|entra no|entra na|vai para)\\s+(?:a\\s+|o\\s+)?(whatsapp|facebook|instagram|tiktok|gmail|google drive|drive|google calendar|calendar|calendario|maps|google maps|google)$/i);
   if (match) return "abre " + match[1];
-  match = value.match(/^(?:wyzen[, ]+)?(?:procura|encontra|pesquisa|localiza) (?:o contacto|a pessoa|contacto chamado|contacto) (.+)$/i);
-  if (match) return "procura contacto " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:autoriza|permite|ativa)\\s+(?:a\\s+)?(microfone|contactos|calendario|calendário|notificacoes|notificações|definicoes|definições)$/i);
+  if (match) return "autoriza " + match[1];
 
-  // Calls and SMS are still routed through the existing confirmation flow.
-  match = value.match(/^(?:wyzen[, ]+)?(?:faz uma chamada|faz chamada|telefona|liga) (?:para )?(.+)$/i);
+  // Contacts, calls and messages.
+  match = value.match(/^(?:wyzen[, ]+)?(?:procura|encontra|pesquisa|localiza|mostra)\\s+(?:o\\s+)?(?:contacto|pessoa)(?:\\s+chamado)?\\s+(.+)$/i);
+  if (match) return "procura contacto " + match[1].trim();
+  match = value.match(/^(?:wyzen[, ]+)?(?:faz uma chamada|faz chamada|telefona|liga|chama)\\s+(?:para\\s+)?(.+)$/i);
   if (match) return "liga para " + match[1].trim();
-  match = value.match(/^(?:wyzen[, ]+)?(?:envia|manda|prepara) (?:um )?(?:sms|mensagem) (?:para )?(.+?)\s*[:;,]\s*(.+)$/i);
+  match = value.match(/^(?:wyzen[, ]+)?(?:envia|manda|prepara|escreve)\\s+(?:um\\s+)?(?:sms|mensagem)\\s+(?:para\\s+)?(.+?)\\s*[:;,]\\s*(.+)$/i);
   if (match) return "sms para " + match[1].trim() + ": " + match[2].trim();
 
-  // Reminder phrasing stays compatible with the current reminder parser.
-  match = value.match(/^(?:wyzen[, ]+)?(?:cria|marca|agenda) (?:um )?lembrete (?:para|de)?\s*(.+)$/i);
-  if (match && /\b(?:às|as)\s+\d{1,2}[:h]\d{2}\b/i.test(match[1])) return "lembra-me de " + match[1].trim();
+  // Timed reminders use the existing reminder handler.
+  match = value.match(/^(?:wyzen[, ]+)?(?:cria|marca|agenda|lembra-me de)\\s+(?:um\\s+)?(?:lembrete|alarme|aviso)?\\s*(?:para|de)?\\s*(.+?)\\s+(?:às|as)\\s+(\\d{1,2})[:h](\\d{2})$/i);
+  if (match) return "lembra-me de " + match[1].trim() + " às " + match[2] + ":" + match[3];
 
-  // Conversation remains untouched whenever the intention is not clear.
   return value;
 }
 
