@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert, Animated, AppState, Easing, Keyboard, StatusBar, StyleSheet, Text,
-  TextInput, TouchableWithoutFeedback, Pressable, View
+  TextInput, TouchableWithoutFeedback, Pressable, View, Modal
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
@@ -43,6 +43,7 @@ export default function App() {
   const [modelReady, setModelReady] = useState(false);
   const [modelBusy, setModelBusy] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
+  const [systemsVisible, setSystemsVisible] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
 
@@ -391,13 +392,16 @@ export default function App() {
 
   const openSystems = () => {
     if (busy) return;
-    Alert.alert("SISTEMAS WYZEN", "Escolhe uma ferramenta do núcleo:", [
-      { text: "Tarefas", onPress: () => runQuickAction("mostra tarefas") },
-      { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
-      { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
-      { text: modelReady ? "Cérebro local instalado" : "Instalar cérebro local · 271 MB", onPress: () => { if (!modelReady) installLocalModel(); } },
-      { text: "Fechar", style: "cancel" }
-    ]);
+    setSystemsVisible(true);
+  };
+
+  const chooseSystemAction = (action: string) => {
+    setSystemsVisible(false);
+    if (action === "model") {
+      if (!modelReady) installLocalModel();
+      return;
+    }
+    runQuickAction(action);
   };
 
   const executeCommand = () => {
@@ -414,6 +418,49 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#050306" />
+      <Modal
+        visible={systemsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSystemsVisible(false)}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.78)", justifyContent: "center", paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: "#10131D", borderWidth: 1, borderColor: "#34304F", borderRadius: 22, padding: 20 }}>
+            <Text style={{ color: "#F5F8FF", fontSize: 20, fontWeight: "900", letterSpacing: 2 }}>SISTEMAS WYZEN</Text>
+            <Text style={{ color: "#A6B2C5", fontSize: 12, marginTop: 6, marginBottom: 16 }}>Ferramentas disponíveis neste dispositivo</Text>
+            {[
+              { label: "Tarefas", detail: "Ver e gerir tarefas guardadas", action: "mostra tarefas", icon: "✓" },
+              { label: "Memória", detail: "Consultar informações guardadas", action: "consulta a memória", icon: "◈" },
+              { label: "Resumo do dia", detail: "Ver o histórico de interações", action: "resumo de hoje", icon: "≡" }
+            ].map(item => (
+              <Pressable key={item.action} onPress={() => chooseSystemAction(item.action)} style={{ paddingVertical: 13, borderTopWidth: 1, borderTopColor: "#292D3A" }}>
+                <Text style={{ color: "#E7EAF4", fontSize: 15, fontWeight: "700" }}>{item.icon}  {item.label}</Text>
+                <Text style={{ color: "#8994AA", fontSize: 11, marginTop: 4 }}>{item.detail}</Text>
+              </Pressable>
+            ))}
+            <Pressable onPress={() => chooseSystemAction("model")} style={{ paddingVertical: 13, borderTopWidth: 1, borderTopColor: "#292D3A" }}>
+              <Text style={{ color: modelReady ? "#55D6A2" : "#00D5FF", fontSize: 15, fontWeight: "800" }}>
+                {modelReady ? "✓ Cérebro local instalado" : "↓ Instalar cérebro local · 271 MB"}
+              </Text>
+              <Text style={{ color: "#8994AA", fontSize: 11, marginTop: 4 }}>
+                {modelReady ? "SmolLM2 está guardado neste telemóvel" : "Descarregar SmolLM2 para responder offline"}
+              </Text>
+              {modelBusy && (
+                <View style={{ marginTop: 10 }}>
+                  <View style={{ height: 6, backgroundColor: "#292D3A", borderRadius: 6, overflow: "hidden" }}>
+                    <View style={{ height: 6, width: Math.max(2, modelProgress * 100) + "%", backgroundColor: "#00D5FF" }} />
+                  </View>
+                  <Text style={{ color: "#A6B2C5", fontSize: 10, marginTop: 5 }}>{Math.round(modelProgress * 100)}% descarregado</Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable onPress={() => setSystemsVisible(false)} style={{ marginTop: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: "#29243C", alignItems: "center" }}>
+              <Text style={{ color: "#D6C9FF", fontWeight: "800", letterSpacing: 1 }}>FECHAR</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
           <View style={styles.top}><Text style={styles.wordmark}>WYZEN</Text><Text style={styles.topline}>PERSONAL INTELLIGENCE</Text></View>
