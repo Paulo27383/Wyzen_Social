@@ -11,7 +11,7 @@ import {
   useSpeechRecognitionEvent
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
-import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
+import { downloadLocalModel, getLocalModelStatus, unloadLocalModel, verifyLocalModel, removeLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
@@ -362,11 +362,16 @@ export default function App() {
           setStatus("A descarregar o modelo local");
           try {
             await downloadLocalModel(progress => setModelProgress(progress));
+            setStatus("A verificar o modelo no telemóvel");
+            await verifyLocalModel();
             setModelReady(true);
-            setStatus("Cérebro local instalado");
-            setAnswer("O modelo local foi descarregado. A partir de agora, as respostas generativas são processadas neste telemóvel.");
+            setModelProgress(1);
+            setStatus("Cérebro local instalado e testado");
+            setAnswer("SmolLM2 foi descarregado e passou no teste de carregamento. As respostas generativas usam o modelo neste telemóvel.");
           } catch (error) {
             const reason = error instanceof Error ? error.message : "Falha no download";
+            await removeLocalModel().catch(() => undefined);
+            setModelReady(false);
             setStatus("Não foi possível instalar o modelo");
             setAnswer(reason);
           } finally {
@@ -396,11 +401,11 @@ export default function App() {
   };
 
   const chooseSystemAction = (action: string) => {
-    setSystemsVisible(false);
     if (action === "model") {
       if (!modelReady) installLocalModel();
       return;
     }
+    setSystemsVisible(false);
     runQuickAction(action);
   };
 
