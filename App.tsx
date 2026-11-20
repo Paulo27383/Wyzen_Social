@@ -201,7 +201,7 @@ export default function App() {
     }
     if (/^(resumo de hoje|resume o meu dia|o que fizemos hoje)$/i.test(value.trim())) {
       const history = await dailyInteractions();
-      const result = history.length ? "Resumo do dia: " + history.length + " interações guardadas.\\n" + history.slice(0, 10).map((item, index) => (index + 1) + ". " + item.userText + " — " + item.assistantText.slice(0, 180)).join("\\n") : "Ainda não há interações guardadas hoje.";
+      const result = history.length ? "Resumo do dia: " + history.length + " interações guardadas.\n" + history.slice(0, 10).map((item, index) => (index + 1) + ". " + item.userText + " — " + item.assistantText.slice(0, 180)).join("\n") : "Ainda não há interações guardadas hoje.";
       setAnswer(result); setStatus("Resumo diário"); speakWyzen(result, { language: "pt-PT" });
       return;
     }
@@ -449,7 +449,7 @@ export default function App() {
               {modelBusy && (
                 <View style={{ marginTop: 10 }}>
                   <View style={{ height: 6, backgroundColor: "#292D3A", borderRadius: 6, overflow: "hidden" }}>
-                    <View style={{ height: 6, width: Math.max(2, modelProgress * 100) + "%", backgroundColor: "#00D5FF" }} />
+                    <View style={{ height: 6, width: `${Math.max(2, modelProgress * 100)}%` as `${number}%`, backgroundColor: "#00D5FF" }} />
                   </View>
                   <Text style={{ color: "#A6B2C5", fontSize: 10, marginTop: 5 }}>{Math.round(modelProgress * 100)}% descarregado</Text>
                 </View>
