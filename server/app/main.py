@@ -1,6 +1,10 @@
 import os
 import re
 import sqlite3
+import html
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -117,6 +121,55 @@ def memory_notes(memory_context: str):
             if line.strip().startswith("- ")][:12]
 
 
+
+class SearchResultsParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.results = []
+        self._anchor = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "a" and "result__a" in attrs.get("class", ""):
+            self._anchor = attrs.get("href", "")
+            self._text = []
+
+    def handle_data(self, data):
+        if self._anchor is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._anchor is not None:
+            title = re.sub(r"\\s+", " ", "".join(self._text)).strip()
+            url = html.unescape(self._anchor)
+            if title and url.startswith("https://"):
+                self.results.append({"title": title, "url": url})
+            self._anchor = None
+            self._text = []
+
+
+def internet_search(query: str):
+    query = re.sub(r"\\s+", " ", query).strip()[:300]
+    if len(query) < 2:
+        return []
+    url = "https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": query})
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; WYZEN/1.0)"})
+    with urllib.request.urlopen(request, timeout=12) as response:
+        if response.status != 200:
+            raise RuntimeError("O motor de pesquisa não respondeu corretamente.")
+        page = response.read(1_500_000).decode("utf-8", errors="replace")
+    parser = SearchResultsParser()
+    parser.feed(page)
+    unique, seen = [], set()
+    for item in parser.results:
+        if item["url"] not in seen:
+            seen.add(item["url"])
+            unique.append(item)
+        if len(unique) == 6:
+            break
+    return unique
+
 def answer_for(intent: str, message: str, context, memory_context: str = "") -> str:
     value = normalize(message)
     last_user = context[-1][0] if context else ""
@@ -145,7 +198,17 @@ def answer_for(intent: str, message: str, context, memory_context: str = "") -> 
     if intent == "learning":
         return "Posso explicar o assunto, apresentar um exemplo e depois propor uma pequena verificação para confirmar a compreensão. Qual é o tema ou conceito que queres estudar?"
     if intent == "search":
-        return "O meu servidor próprio ainda não tem acesso direto à pesquisa na Internet. Posso analisar informação que partilhares, organizar perguntas de pesquisa ou explicar o que já conheço, distinguindo o que não consigo confirmar."
+        try:
+            results = internet_search(message)
+            if not results:
+                return "A pesquisa na Internet foi executada, mas não encontrei resultados. Tenta reformular a pesquisa."
+            lines = ["Encontrei estes resultados na Internet para: " + message, ""]
+            for index, item in enumerate(results, 1):
+                lines.append(str(index) + ". " + item["title"] + "\\n" + item["url"])
+            lines.append("\\nEstes são resultados de pesquisa; confirma os detalhes abrindo as fontes. Posso resumir páginas cujo conteúdo partilhares.")
+            return "\\n".join(lines)
+        except Exception as exc:
+            return "Não consegui concluir a pesquisa na Internet neste momento (" + type(exc).__name__ + "). Verifica a ligação e tenta novamente."
     if intent == "translation":
         return "Envia o texto completo e indica o idioma de destino. Vou preservar o sentido e assinalar expressões ambíguas."
     if intent == "opinion":
@@ -190,7 +253,7 @@ def health():
             "native-intent-routing", "recent-turn-context", "device-memory-context",
             "dialogue-state", "clarification", "comparison", "planning",
             "learning", "creative-writing-routing", "coding-help-routing",
-            "trainable-intent-classifier"
+            "trainable-intent-classifier", "internet-search-duckduckgo"
         ]
     }
 
