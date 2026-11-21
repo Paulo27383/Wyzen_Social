@@ -97,6 +97,8 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
 
   const intent = classifyLocalIntent(cleanCommand);
   if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
+  const normalizedSearch = cleanCommand.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const isWebSearch = /\\b(pesquisa|pesquisar|procura na internet|buscar na internet|busca na web|pesquisa na web|informacoes sobre|informacao sobre)\\b/.test(normalizedSearch);
 
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
@@ -110,6 +112,15 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
       .map(item => ({ user: item.userText, assistant: item.assistantText }));
   } catch {
     // A conversa continua mesmo que a memória ou o histórico local estejam indisponíveis.
+  }
+
+  if (isWebSearch) {
+    try {
+      const webReply = await askOwnServer(cleanCommand, "search", memories);
+      return { ...webReply, intent: "search", engine: "wyzen-internet-search", modelRequired: false };
+    } catch (error) {
+      return { answer: "Não consegui ligar ao serviço de pesquisa na Internet. Verifica a ligação e tenta novamente.", intent: "search", engine: "wyzen-web-search-unavailable", modelRequired: false };
+    }
   }
 
   let localModelError = "";
