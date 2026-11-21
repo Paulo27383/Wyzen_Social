@@ -98,7 +98,7 @@ export async function askWyzen(command: string): Promise<AssistantReply> {
   const intent = classifyLocalIntent(cleanCommand);
   if (intent === "time" || intent === "date") return localUtilityReply(cleanCommand);
   const normalizedSearch = cleanCommand.toLocaleLowerCase("pt-PT").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
-  const isWebSearch = /\\b(pesquisa|pesquisar|procura na internet|buscar na internet|busca na web|pesquisa na web|informacoes sobre|informacao sobre)\\b/.test(normalizedSearch);
+  const isWebSearch = /\\b(pesquis\\w*|procur\\w*|busc\\w*|informacoes sobre|informacao sobre)\\b/.test(normalizedSearch);
 
   let memories = "";
   let dialogue: Array<{ user: string; assistant: string }> = [];
