@@ -143,7 +143,12 @@ class SearchResultsParser(HTMLParser):
         if tag == "a" and self._anchor is not None:
             title = re.sub(r"\\s+", " ", "".join(self._text)).strip()
             url = html.unescape(self._anchor)
-            if title and url.startswith("https://"):
+            parsed = urllib.parse.urlparse(url)
+            if parsed.netloc.endswith("duckduckgo.com"):
+                target = urllib.parse.parse_qs(parsed.query).get("uddg", [""])[0]
+                if target.startswith("https://"):
+                    url = target
+            if title and url.startswith("https://") and "duckduckgo.com" not in urllib.parse.urlparse(url).netloc:
                 self.results.append({"title": title, "url": url})
             self._anchor = None
             self._text = []
