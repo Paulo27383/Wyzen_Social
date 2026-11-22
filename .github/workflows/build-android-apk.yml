@@ -37,6 +37,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Download bundled Qwen GGUF model
+        run: |
+          mkdir -p assets
+          curl --fail --location --retry 5 --retry-all-errors --output assets/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+          test "$(stat -c%s assets/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf)" -gt 300000000
+
       - name: Generate Android launcher PNG
         run: npx --yes sharp-cli -i assets/icon.svg -o assets/icon.png resize 1024 1024
 
