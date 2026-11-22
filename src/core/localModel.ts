@@ -1,14 +1,17 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Asset } from "expo-asset";
 import { initLlama, type LlamaContext } from "llama.rn";
 
+// The GGUF is bundled by Metro into the APK during the Release build.
+// Asset.downloadAsync extracts that bundled asset locally; it does not use mobile data.
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ""}wyzen-models/`;
 const MODEL_FILE = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
 const MODEL_PATH = MODEL_DIR + MODEL_FILE;
-const MODEL_URL =
-  "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
-const MIN_MODEL_BYTES = 10 * 1024 * 1024;
+const BUNDLED_MODEL = require("../../assets/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf");
+const MIN_MODEL_BYTES = 300 * 1024 * 1024;
 let context: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
+let preparing: Promise<void> | null = null;
 let activeGenerations = 0;
 let unloadRequested = false;
 
@@ -19,52 +22,42 @@ export type LocalModelStatus = {
   approximateDownloadMB: number;
 };
 
+async function prepareBundledModel(): Promise<void> {
+  if (preparing) return preparing;
+  preparing = (async () => {
+    await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
+    const existing = await FileSystem.getInfoAsync(MODEL_PATH);
+    const existingSize = "size" in existing && typeof existing.size === "number" ? existing.size : 0;
+    if (existing.exists && !existing.isDirectory && existingSize >= MIN_MODEL_BYTES) return;
+
+    if (existing.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
+    const asset = Asset.fromModule(BUNDLED_MODEL);
+    await asset.downloadAsync();
+    if (!asset.localUri) throw new Error("Não foi possível extrair o cérebro local incluído na aplicação.");
+    await FileSystem.copyAsync({ from: asset.localUri, to: MODEL_PATH });
+
+    const installed = await FileSystem.getInfoAsync(MODEL_PATH);
+    const installedSize = "size" in installed && typeof installed.size === "number" ? installed.size : 0;
+    if (!installed.exists || installed.isDirectory || installedSize < MIN_MODEL_BYTES) {
+      if (installed.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
+      throw new Error("O cérebro local incluído no APK está incompleto. Reinstala a aplicação.");
+    }
+  })();
+  try {
+    await preparing;
+  } finally {
+    preparing = null;
+  }
+}
+
 export async function getLocalModelStatus(): Promise<LocalModelStatus> {
-  const info = await FileSystem.getInfoAsync(MODEL_PATH);
-  const size = "size" in info && typeof info.size === "number" ? info.size : 0;
+  await prepareBundledModel();
   return {
     available: true,
-    downloaded: info.exists && !info.isDirectory && size >= MIN_MODEL_BYTES,
+    downloaded: true,
     model: "Qwen2.5 0.5B Instruct (Q4_K_M)",
     approximateDownloadMB: 398
   };
-}
-
-/** Downloads the model only after the user explicitly requests installation. */
-export async function downloadLocalModel(
-  onProgress?: (progress: number) => void
-): Promise<void> {
-  await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
-  const existing = await FileSystem.getInfoAsync(MODEL_PATH);
-  const existingSize = "size" in existing && typeof existing.size === "number" ? existing.size : 0;
-  if (existing.exists && !existing.isDirectory && existingSize >= MIN_MODEL_BYTES) return;
-  if (existing.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
-
-  const download = FileSystem.createDownloadResumable(
-    MODEL_URL,
-    MODEL_PATH,
-    {},
-    progress => {
-      const total = progress.totalBytesExpectedToWrite;
-      if (total > 0) onProgress?.(progress.totalBytesWritten / total);
-    }
-  );
-
-  try {
-    const result = await download.downloadAsync();
-    if (!result?.uri || result.status < 200 || result.status >= 300) {
-      throw new Error("O download do modelo não foi concluído.");
-    }
-    const downloaded = await FileSystem.getInfoAsync(MODEL_PATH);
-    const size = "size" in downloaded && typeof downloaded.size === "number" ? downloaded.size : 0;
-    if (!downloaded.exists || downloaded.isDirectory || size < MIN_MODEL_BYTES) {
-      throw new Error("O ficheiro recebido parece incompleto. Repete o download com uma ligação estável.");
-    }
-  } catch (error) {
-    const partial = await FileSystem.getInfoAsync(MODEL_PATH);
-    if (partial.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
-    throw error;
-  }
 }
 
 async function loadModel(): Promise<LlamaContext> {
@@ -72,11 +65,8 @@ async function loadModel(): Promise<LlamaContext> {
   if (loading) return loading;
 
   loading = (async () => {
-    const status = await getLocalModelStatus();
-    if (!status.downloaded) {
-      throw new Error("O modelo local ainda não foi descarregado. Instala-o primeiro no menu Sistemas.");
-    }
-    const loaded = await initLlama({
+    await prepareBundledModel();
+    return initLlama({
       model: MODEL_PATH,
       n_ctx: 2048,
       n_batch: 32,
@@ -84,9 +74,10 @@ async function loadModel(): Promise<LlamaContext> {
       n_gpu_layers: 0,
       use_mmap: true,
       use_mlock: false
+    }).then(loaded => {
+      context = loaded;
+      return loaded;
     });
-    context = loaded;
-    return loaded;
   })();
 
   try {
@@ -104,7 +95,6 @@ export async function generateLocalResponse(
   const cleanMessage = message.trim();
   if (!cleanMessage) throw new Error("A mensagem está vazia.");
 
-  // Count the request before loading to prevent a background unload race.
   activeGenerations += 1;
   unloadRequested = false;
   try {
@@ -142,7 +132,6 @@ export async function generateLocalResponse(
     });
     const answer = typeof result.text === "string" ? result.text.trim() : "";
     if (!answer) throw new Error("O modelo local não produziu texto. Tenta novamente.");
-
     return answer;
   } finally {
     activeGenerations = Math.max(0, activeGenerations - 1);
