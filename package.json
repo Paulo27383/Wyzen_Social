@@ -26,7 +26,8 @@
     "expo-notifications": "~0.32.12",
     "expo-sms": "~14.0.7",
     "expo-file-system": "~19.0.17",
-    "llama.rn": "0.13.0-rc.11"
+    "llama.rn": "0.13.0-rc.11",
+    "expo-asset": "~12.0.9"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
