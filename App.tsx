@@ -12,7 +12,7 @@ import {
 } from "expo-speech-recognition";
 import { askWyzen } from "./src/core/wyzenClient";
 import { buildDailyPlan, isDailyPlanRequest, resolveContextualFollowUp } from "./src/core/assistantCoordinator";
-import { downloadLocalModel, getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
+import { getLocalModelStatus, unloadLocalModel } from "./src/core/localModel";
 import { normalizeNaturalCommand, planCompoundCommand } from "./src/core/assistant";
 import { rememberWyzen, recallWyzen, forgetWyzen, recordInteraction, dailyInteractions } from "./src/core/memory";
 import { addTask, listTasks, completeTask, deleteTask } from "./src/core/tasks";
@@ -42,10 +42,6 @@ export default function App() {
   const [continuousEnabled, setContinuousEnabled] = useState(false);
   const [enrollingVoice, setEnrollingVoice] = useState(false);
   const [command, setCommand] = useState("");
-  const [modelReady, setModelReady] = useState(false);
-  const [modelDownloadMB, setModelDownloadMB] = useState(398);
-  const [modelBusy, setModelBusy] = useState(false);
-  const [modelProgress, setModelProgress] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
 
@@ -61,8 +57,7 @@ export default function App() {
         const savedProfile = await SecureStore.getItemAsync(PROFILE_KEY);
         const savedSession = await SecureStore.getItemAsync(SESSION_KEY);
         const modelStatus = await getLocalModelStatus();
-        setModelReady(modelStatus.downloaded);
-        setModelDownloadMB(modelStatus.approximateDownloadMB);
+        if (modelStatus.downloaded) setStatus("Cérebro local preparado");
         await new Promise(resolve => setTimeout(resolve, 1300));
         if (savedProfile && savedSession === "active") {
           const parsed = JSON.parse(savedProfile) as Profile;
@@ -428,34 +423,6 @@ export default function App() {
     return () => subscription.remove();
   }, [continuousEnabled]);
 
-  const installLocalModel = () => {
-    if (modelReady || modelBusy) return;
-    Alert.alert(
-      "Instalar cérebro local",
-      `A WYZEN vai descarregar cerca de ${modelDownloadMB} MB uma única vez. Recomenda-se Wi-Fi e espaço livre no telemóvel. Queres continuar?`,
-      [
-        { text: "Agora não", style: "cancel" },
-        { text: "Descarregar", onPress: async () => {
-          setModelBusy(true);
-          setModelProgress(0);
-          setStatus("A descarregar o modelo local");
-          try {
-            await downloadLocalModel(progress => setModelProgress(progress));
-            setModelReady(true);
-            setStatus("Cérebro local instalado");
-            setAnswer("O modelo local foi descarregado. A partir de agora, as respostas generativas são processadas neste telemóvel.");
-          } catch (error) {
-            const reason = error instanceof Error ? error.message : "Falha no download";
-            setStatus("Não foi possível instalar o modelo");
-            setAnswer(reason);
-          } finally {
-            setModelBusy(false);
-          }
-        }}
-      ]
-    );
-  };
-
   const sendTypedCommand = () => {
     const value = command.trim();
     if (!value) return;
@@ -476,7 +443,6 @@ export default function App() {
       { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
       { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
       { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
-      { text: modelReady ? "Cérebro local instalado" : `Instalar cérebro local · ${modelDownloadMB} MB`, onPress: () => { if (!modelReady) installLocalModel(); } },
       { text: "Fechar", style: "cancel" }
     ]);
   };
