@@ -5,8 +5,11 @@ const MODEL_DIR = `${FileSystem.documentDirectory ?? ""}wyzen-models/`;
 const MODEL_FILE = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
 const MODEL_PATH = MODEL_DIR + MODEL_FILE;
 const MODEL_URL =
-  "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
-const MIN_MODEL_BYTES = 10 * 1024 * 1024;
+  "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/a5f758267d6599f03006d1e909676f2e2671fb0f/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf";
+// The published GGUF is about 398 MB. Reject truncated downloads rather than
+// treating any file larger than 10 MB as an installed model.
+const MIN_MODEL_BYTES = 370 * 1024 * 1024;
+const TEMP_MODEL_PATH = MODEL_PATH + ".download";
 let context: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
 let activeGenerations = 0;
@@ -34,35 +37,55 @@ export async function getLocalModelStatus(): Promise<LocalModelStatus> {
 export async function downloadLocalModel(
   onProgress?: (progress: number) => void
 ): Promise<void> {
+  if (!FileSystem.documentDirectory) {
+    throw new Error("O armazenamento privado da WYZEN não está disponível neste dispositivo.");
+  }
+
   await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
   const existing = await FileSystem.getInfoAsync(MODEL_PATH);
   const existingSize = "size" in existing && typeof existing.size === "number" ? existing.size : 0;
-  if (existing.exists && !existing.isDirectory && existingSize >= MIN_MODEL_BYTES) return;
+  if (existing.exists && !existing.isDirectory && existingSize >= MIN_MODEL_BYTES) {
+    onProgress?.(1);
+    return;
+  }
+
   if (existing.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
+  const staleTemp = await FileSystem.getInfoAsync(TEMP_MODEL_PATH);
+  if (staleTemp.exists) await FileSystem.deleteAsync(TEMP_MODEL_PATH, { idempotent: true });
 
   const download = FileSystem.createDownloadResumable(
     MODEL_URL,
-    MODEL_PATH,
+    TEMP_MODEL_PATH,
     {},
     progress => {
       const total = progress.totalBytesExpectedToWrite;
-      if (total > 0) onProgress?.(progress.totalBytesWritten / total);
+      if (total > 0) onProgress?.(Math.max(0, Math.min(1, progress.totalBytesWritten / total)));
     }
   );
 
   try {
     const result = await download.downloadAsync();
     if (!result?.uri || result.status < 200 || result.status >= 300) {
-      throw new Error("O download do modelo não foi concluído.");
+      throw new Error("O servidor não concluiu o download do modelo (HTTP " + (result?.status ?? "sem resposta") + ").");
     }
-    const downloaded = await FileSystem.getInfoAsync(MODEL_PATH);
+
+    const downloaded = await FileSystem.getInfoAsync(TEMP_MODEL_PATH);
     const size = "size" in downloaded && typeof downloaded.size === "number" ? downloaded.size : 0;
     if (!downloaded.exists || downloaded.isDirectory || size < MIN_MODEL_BYTES) {
-      throw new Error("O ficheiro recebido parece incompleto. Repete o download com uma ligação estável.");
+      throw new Error("O modelo recebido está incompleto (" + Math.round(size / (1024 * 1024)) + " MB). São necessários pelo menos 370 MB. Verifica a ligação e tenta novamente.");
     }
+
+    await FileSystem.moveAsync({ from: TEMP_MODEL_PATH, to: MODEL_PATH });
+    const verified = await FileSystem.getInfoAsync(MODEL_PATH);
+    const verifiedSize = "size" in verified && typeof verified.size === "number" ? verified.size : 0;
+    if (!verified.exists || verified.isDirectory || verifiedSize < MIN_MODEL_BYTES) {
+      if (verified.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
+      throw new Error("A verificação final do modelo falhou. Repete a instalação.");
+    }
+    onProgress?.(1);
   } catch (error) {
-    const partial = await FileSystem.getInfoAsync(MODEL_PATH);
-    if (partial.exists) await FileSystem.deleteAsync(MODEL_PATH, { idempotent: true });
+    const partial = await FileSystem.getInfoAsync(TEMP_MODEL_PATH);
+    if (partial.exists) await FileSystem.deleteAsync(TEMP_MODEL_PATH, { idempotent: true });
     throw error;
   }
 }
@@ -74,7 +97,7 @@ async function loadModel(): Promise<LlamaContext> {
   loading = (async () => {
     const status = await getLocalModelStatus();
     if (!status.downloaded) {
-      throw new Error("O modelo local ainda não foi descarregado. Instala-o primeiro no menu Sistemas.");
+      throw new Error("O modelo local ainda não foi descarregado. Usa o botão INSTALAR IA LOCAL no ecrã principal.");
     }
     const loaded = await initLlama({
       model: MODEL_PATH,

@@ -46,6 +46,7 @@ export default function App() {
   const [modelDownloadMB, setModelDownloadMB] = useState(398);
   const [modelBusy, setModelBusy] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
+  const [systemsVisible, setSystemsVisible] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
 
@@ -431,19 +432,21 @@ export default function App() {
   const installLocalModel = () => {
     if (modelReady || modelBusy) return;
     Alert.alert(
-      "Instalar cérebro local",
-      `A WYZEN vai descarregar cerca de ${modelDownloadMB} MB uma única vez. Recomenda-se Wi-Fi e espaço livre no telemóvel. Queres continuar?`,
+      "Instalar IA local",
+      `A WYZEN vai descarregar o modelo Qwen2.5 (aproximadamente ${modelDownloadMB} MB). Recomenda-se Wi-Fi e pelo menos 1 GB de espaço livre. O download só começa depois da tua confirmação.`,
       [
-        { text: "Agora não", style: "cancel" },
+        { text: "Cancelar", style: "cancel" },
         { text: "Descarregar", onPress: async () => {
           setModelBusy(true);
           setModelProgress(0);
-          setStatus("A descarregar o modelo local");
+          setStatus("A descarregar o cérebro local");
+          setAnswer("A instalação está em curso. Mantém a WYZEN aberta até o download terminar.");
           try {
-            await downloadLocalModel(progress => setModelProgress(progress));
+            await downloadLocalModel(progress => setModelProgress(Math.max(0, Math.min(1, progress))));
+            setModelProgress(1);
             setModelReady(true);
             setStatus("Cérebro local instalado");
-            setAnswer("O modelo local foi descarregado. A partir de agora, as respostas generativas são processadas neste telemóvel.");
+            setAnswer("O modelo Qwen2.5 foi descarregado e verificado. As respostas generativas podem agora ser processadas neste telemóvel, sem Internet.");
           } catch (error) {
             const reason = error instanceof Error ? error.message : "Falha no download";
             setStatus("Não foi possível instalar o modelo");
@@ -471,14 +474,7 @@ export default function App() {
 
   const openSystems = () => {
     if (busy) return;
-    Alert.alert("SISTEMAS WYZEN", "Escolhe uma ferramenta do núcleo:", [
-      { text: "Tarefas", onPress: () => runQuickAction("mostra tarefas") },
-      { text: "Memória", onPress: () => runQuickAction("consulta a memória") },
-      { text: "Resumo do dia", onPress: () => runQuickAction("resumo de hoje") },
-      { text: continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua", onPress: () => runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua") },
-      { text: modelReady ? "Cérebro local instalado" : `Instalar cérebro local · ${modelDownloadMB} MB`, onPress: () => { if (!modelReady) installLocalModel(); } },
-      { text: "Fechar", style: "cancel" }
-    ]);
+    setSystemsVisible(true);
   };
 
   const executeCommand = () => {
@@ -506,6 +502,30 @@ export default function App() {
             </Animated.View>
             <Text style={styles.creator}>WYZEN AI</Text><Text style={styles.brandline}>YOUR PERSONAL CONTROL CENTER</Text>
             <Text style={styles.status}>{status}</Text>
+            {phase === "ready" && (
+              <View style={styles.modelPanel}>
+                <View style={styles.modelHeader}>
+                  <Text style={styles.modelTitle}>CÉREBRO LOCAL</Text>
+                  <Text style={styles.modelState}>{modelReady ? "INSTALADO" : modelBusy ? "A DESCARREGAR" : "NÃO INSTALADO"}</Text>
+                </View>
+                <Text style={styles.modelHint}>Qwen2.5 · cerca de {modelDownloadMB} MB · respostas no próprio telemóvel</Text>
+                {modelBusy && (
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.round(modelProgress * 100)}%` }]} />
+                  </View>
+                )}
+                {modelBusy && <Text style={styles.progressLabel}>{Math.round(modelProgress * 100)}% descarregado</Text>}
+                <Pressable
+                  onPress={installLocalModel}
+                  disabled={modelReady || modelBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Instalar modelo de inteligência artificial local"
+                  style={({ pressed }) => [styles.modelButton, (modelReady || modelBusy) && styles.modelButtonDisabled, pressed && styles.quickPressed]}
+                >
+                  <Text style={styles.modelButtonText}>{modelReady ? "✓  MODELO LOCAL INSTALADO" : modelBusy ? "A DESCARREGAR MODELO…" : "⬇  INSTALAR IA LOCAL · 398 MB"}</Text>
+                </Pressable>
+              </View>
+            )}
             {phase === "enroll" && (
               <View style={styles.enroll}>
                 <Text style={styles.title}>A tua identidade</Text>
@@ -537,6 +557,31 @@ export default function App() {
               <Pressable onPress={openSystems} disabled={busy} accessibilityRole="button" accessibilityLabel="Abrir sistemas" style={({ pressed }) => [styles.primaryButton, styles.systemsButton, pressed && styles.quickPressed]}>
                 <Text style={styles.systemsText}>⌘  SISTEMAS</Text>
               </Pressable>
+              </View>
+            </View>
+          )}
+          {systemsVisible && (
+            <View style={styles.systemsOverlay}>
+              <View style={styles.systemsPanel}>
+                <Text style={styles.systemsTitle}>SISTEMAS WYZEN</Text>
+                <Pressable style={styles.systemMenuItem} onPress={() => { setSystemsVisible(false); runQuickAction("mostra tarefas"); }}>
+                  <Text style={styles.systemMenuText}>Tarefas</Text>
+                </Pressable>
+                <Pressable style={styles.systemMenuItem} onPress={() => { setSystemsVisible(false); runQuickAction("consulta a memória"); }}>
+                  <Text style={styles.systemMenuText}>Memória</Text>
+                </Pressable>
+                <Pressable style={styles.systemMenuItem} onPress={() => { setSystemsVisible(false); runQuickAction("resumo de hoje"); }}>
+                  <Text style={styles.systemMenuText}>Resumo do dia</Text>
+                </Pressable>
+                <Pressable style={styles.systemMenuItem} onPress={() => { setSystemsVisible(false); runQuickAction(continuousEnabled ? "desativa voz contínua" : "ativa voz contínua"); }}>
+                  <Text style={styles.systemMenuText}>{continuousEnabled ? "Desativar voz contínua" : "Ativar voz contínua"}</Text>
+                </Pressable>
+                <Pressable style={styles.systemMenuItem} onPress={() => { setSystemsVisible(false); if (!modelReady) installLocalModel(); }}>
+                  <Text style={styles.systemMenuText}>{modelReady ? "Cérebro local instalado" : "Instalar cérebro local · " + modelDownloadMB + " MB"}</Text>
+                </Pressable>
+                <Pressable style={[styles.systemMenuItem, styles.systemMenuClose]} onPress={() => setSystemsVisible(false)}>
+                  <Text style={styles.systemMenuCloseText}>Fechar</Text>
+                </Pressable>
               </View>
             </View>
           )}
@@ -576,6 +621,24 @@ const styles = StyleSheet.create({
   executeText: { color: "#FF6685", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
   systemsButton: { borderWidth: 1, borderColor: "rgba(160,130,255,0.65)", backgroundColor: "rgba(125,90,220,0.12)" },
   systemsText: { color: "#C1A9FF", fontSize: 10, fontWeight: "900", letterSpacing: 0.7 },
+  modelPanel: { width: "100%", marginTop: 16, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: "rgba(0,213,255,0.35)", backgroundColor: "rgba(0,180,220,0.07)" },
+  modelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modelTitle: { color: "#DCEBFA", fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
+  modelState: { color: "#5CE1A0", fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
+  modelHint: { color: "#93A6BC", fontSize: 10, lineHeight: 15, marginTop: 5 },
+  progressTrack: { height: 6, borderRadius: 4, backgroundColor: "#263747", overflow: "hidden", marginTop: 10 },
+  progressFill: { height: 6, borderRadius: 4, backgroundColor: "#00D5A0" },
+  progressLabel: { color: "#A7BACB", fontSize: 9, textAlign: "right", marginTop: 4 },
+  modelButton: { minHeight: 38, marginTop: 9, paddingHorizontal: 10, borderRadius: 9, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0,213,160,0.65)", backgroundColor: "rgba(0,213,160,0.12)" },
+  modelButtonDisabled: { opacity: 0.75 },
+  modelButtonText: { color: "#9BF0CC", fontSize: 10, fontWeight: "900", letterSpacing: 0.6, textAlign: "center" },
+  systemsOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, elevation: 30, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center", padding: 22 },
+  systemsPanel: { width: "100%", maxWidth: 360, borderRadius: 18, padding: 18, backgroundColor: "#111923", borderWidth: 1, borderColor: "#314253" },
+  systemsTitle: { color: "#EAF4FF", fontSize: 13, fontWeight: "900", letterSpacing: 2, marginBottom: 10, textAlign: "center" },
+  systemMenuItem: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: "#253342" },
+  systemMenuText: { color: "#D6E4F2", fontSize: 13, fontWeight: "600" },
+  systemMenuClose: { borderBottomWidth: 0, marginTop: 5, alignItems: "center" },
+  systemMenuCloseText: { color: "#9BAABD", fontSize: 12, fontWeight: "700" },
   commandInput: { flex: 1, color: "white", fontSize: 13, maxHeight: 90, paddingVertical: 8 },
   sendButton: { borderWidth: 1, borderColor: "rgba(0,213,255,0.65)", backgroundColor: "rgba(0,213,255,0.10)" },
   sendPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
